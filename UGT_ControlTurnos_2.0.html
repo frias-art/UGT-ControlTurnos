@@ -2244,15 +2244,43 @@ function renderScanResults(turnos, semana) {
         </div>
       </div>
       <div style="display:flex;gap:6px;margin-bottom:10px">
-        <button class="big-btn outline" style="flex:1;padding:7px;font-size:.68rem" onclick="toggleAllReview(true)">✓ Todos</button>
-        <button class="big-btn outline" style="flex:1;padding:7px;font-size:.68rem" onclick="toggleAllReview(false)">✗ Ninguno</button>
-        <button class="big-btn outline" style="flex:1;padding:7px;font-size:.68rem" onclick="selectOnlyFuzzy()">~ Solo similares</button>
+        <button class="big-btn outline" style="flex:1;padding:7px;font-size:.68rem" id="btn-all-on">✓ Todos</button>
+        <button class="big-btn outline" style="flex:1;padding:7px;font-size:.68rem" id="btn-all-off">✗ Ninguno</button>
+        <button class="big-btn outline" style="flex:1;padding:7px;font-size:.68rem" id="btn-fuzzy">~ Similares</button>
       </div>
       ${rows}
-      <button class="big-btn success full" style="margin-top:12px" onclick="importScannedShifts()">
+      <button class="big-btn success full" style="margin-top:12px" id="btn-import">
         ⬇ Importar seleccionados
       </button>
     </div>`;
+
+  // Usar addEventListener en lugar de onclick en innerHTML
+  // para máxima compatibilidad en móvil
+  setTimeout(() => {
+    const btnImport = document.getElementById('btn-import');
+    const btnAllOn  = document.getElementById('btn-all-on');
+    const btnAllOff = document.getElementById('btn-all-off');
+    const btnFuzzy  = document.getElementById('btn-fuzzy');
+    if (btnImport) btnImport.addEventListener('click', importScannedShifts);
+    if (btnAllOn)  btnAllOn.addEventListener('click',  () => toggleAllReview(true));
+    if (btnAllOff) btnAllOff.addEventListener('click',  () => toggleAllReview(false));
+    if (btnFuzzy)  btnFuzzy.addEventListener('click',   selectOnlyFuzzy);
+
+    // Eventos para checkboxes y selects de cada fila
+    turnos.forEach((t, i) => {
+      const chk = document.getElementById(`rchk-${i}`);
+      const sel = document.getElementById(`rtur-${i}`);
+      const apeEl = document.getElementById(`rape-${i}`);
+      const nomEl = document.getElementById(`rnom-${i}`);
+      if (chk) chk.addEventListener('click', () => toggleReviewCheck(i));
+      if (sel) sel.addEventListener('change', () => {
+        updateScanned(i, 'turno', sel.value);
+        sel.className = 'review-turno-sel ' + (sel.value==='MAÑANA'?'M':sel.value==='TARDE'?'T':'N');
+      });
+      if (apeEl) apeEl.addEventListener('blur', () => updateScanned(i, 'ape', apeEl.textContent));
+      if (nomEl) nomEl.addEventListener('change', () => updateScanned(i, 'nom', nomEl.value));
+    });
+  }, 50);
 }
 
 function updateScanned(i, field, val) {
