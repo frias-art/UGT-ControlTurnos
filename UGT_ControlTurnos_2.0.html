@@ -858,6 +858,83 @@ hr { border: none; border-top: 1px solid var(--border); margin: 14px 0; }
   font-size:.68rem; font-weight:800; margin-bottom:10px;
 }
 
+
+/* ── HISTORIAL ANUAL ── */
+.year-tabs {
+  display: flex; gap: 8px; overflow-x: auto;
+  padding-bottom: 4px; margin-bottom: 16px;
+  scrollbar-width: none;
+}
+.year-tabs::-webkit-scrollbar { display: none; }
+.year-tab {
+  flex-shrink: 0; padding: 9px 18px;
+  border-radius: 10px; font-size: .8rem; font-weight: 800;
+  background: var(--card); border: 1px solid var(--border);
+  color: var(--muted2); cursor: pointer;
+  transition: all .15s; -webkit-user-select: none;
+  display: flex; align-items: center; gap: 6px;
+}
+.year-tab.active { background: var(--accent); color: #000; border-color: var(--accent); }
+.year-tab:active { transform: scale(.93); }
+.year-tab .badge-sems {
+  background: rgba(0,0,0,.15); border-radius: 8px;
+  padding: 1px 6px; font-size: .6rem;
+}
+.year-actions {
+  display: flex; gap: 8px; margin-bottom: 16px; flex-wrap: wrap;
+}
+.hist-card {
+  background: var(--card); border: 1px solid var(--border);
+  border-radius: 14px; padding: 16px; margin-bottom: 10px;
+  cursor: pointer; transition: all .2s;
+}
+.hist-card:active { transform: scale(.98); }
+.hist-card-year { font-family: 'Outfit',sans-serif; font-size: 1.4rem; font-weight: 900; }
+.hist-card-meta { font-size: .7rem; color: var(--muted2); margin-top: 2px; margin-bottom: 10px; }
+.hist-bars { display: flex; gap: 8px; }
+.hist-bar-wrap { flex: 1; text-align: center; }
+.hist-bar-val { font-size: .85rem; font-weight: 800; margin-bottom: 3px; }
+.hist-bar-lbl { font-size: .6rem; color: var(--muted); }
+.year-indicator {
+  display: inline-flex; align-items: center; gap: 6px;
+  background: rgba(34,211,238,.1); border: 1px solid rgba(34,211,238,.3);
+  border-radius: 8px; padding: 4px 10px; font-size: .7rem;
+  font-weight: 700; color: var(--accent); margin-bottom: 12px;
+}
+
+
+/* ── HISTORIAL – clases adicionales ── */
+.year-tab {
+  flex-shrink: 0; padding: 8px 16px;
+  border-radius: 10px; font-size: .8rem; font-weight: 800;
+  background: var(--card); border: 1px solid var(--border);
+  color: var(--muted2); cursor: pointer; transition: all .15s;
+  -webkit-user-select: none; display: flex; align-items: center; gap: 6px;
+}
+.year-tab.active { background: var(--accent); color: #000; border-color: var(--accent); }
+.year-tab:active { transform: scale(.93); }
+.badge-sems {
+  font-size: .6rem; background: rgba(255,255,255,.2);
+  padding: 1px 5px; border-radius: 6px; font-weight: 700;
+}
+.year-actions {
+  display: flex; gap: 10px; margin-bottom: 14px;
+}
+.hist-card-year {
+  font-size: 1.6rem; font-weight: 900;
+  letter-spacing: -1px; line-height: 1.1;
+}
+.hist-card-meta {
+  font-size: .68rem; color: var(--muted2); margin-top: 2px;
+}
+.hist-bars {
+  display: grid; grid-template-columns: 1fr 1fr 1fr;
+  gap: 10px; margin-top: 12px;
+}
+.hist-bar-wrap { text-align: center; }
+.hist-bar-val { font-size: .9rem; font-weight: 800; }
+.hist-bar-lbl { font-size: .6rem; color: var(--muted2); }
+
 </style>
 </head>
 <body>
@@ -868,14 +945,15 @@ hr { border: none; border-top: 1px solid var(--border); margin: 14px 0; }
     <div class="header-logo-wrap">
       <img src="data:image/jpeg;base64,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" class="header-logo" alt="UGT FICA">
       <div class="header-title-block">
-        <div class="app-title">UGT <span>Control de Turnos 2.0</span></div>
-        <div class="app-version">· Cervezas San Miguel – Málaga</div>
+        <div class="app-title">UGT <span>Control de Turnos</span></div>
+        <div class="app-version">2.0 · Cervezas San Miguel – Málaga</div>
       </div>
     </div>
     <div class="header-right">
       <span class="pill-badge" id="sem-badge">SEM 15</span>
       <div class="icon-btn" onclick="openAddSheet()" title="Añadir turno">＋</div>
       <div class="icon-btn" onclick="exportExcel()" title="Exportar">⬇</div>
+      <div class="icon-btn" onclick="resetToBase()" title="Resetear datos">🔄</div>
     </div>
   </header>
 
@@ -1126,6 +1204,10 @@ hr { border: none; border-top: 1px solid var(--border); margin: 14px 0; }
       <div class="nav-icon">🏆</div>
       <div class="nav-label">Ranking</div>
     </div>
+    <div class="nav-item" onclick="goPage('hist',this)">
+      <div class="nav-icon">📅</div>
+      <div class="nav-label">Historial</div>
+    </div>
   </nav>
 </div>
 
@@ -1149,6 +1231,46 @@ hr { border: none; border-top: 1px solid var(--border); margin: 14px 0; }
   </div>
 </div>
 
+
+<!-- ═══ HISTORIAL ═══ -->
+    <div class="page" id="page-hist">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+        <div class="section-title">📅 Historial anual</div>
+      </div>
+
+      <!-- Selector de año -->
+      <div class="year-tabs" id="year-tabs"></div>
+
+      <!-- Indicador año activo -->
+      <div class="year-indicator" id="year-indicator">📅 Año activo: <span id="active-year-lbl">2026</span></div>
+
+      <!-- Acciones -->
+      <div class="year-actions">
+        <button class="big-btn primary" style="flex:1" onclick="newYear()">➕ Nuevo año</button>
+        <button class="big-btn outline" style="flex:1" onclick="exportYearExcel()">⬇ Excel año</button>
+      </div>
+
+      <!-- KPIs año seleccionado -->
+      <div class="kpi-row three" id="hist-kpis"></div>
+
+      <!-- Gráfico comparativo anual -->
+      <div class="card" style="margin-bottom:12px">
+        <div class="card-label">📊 Comparativa anual</div>
+        <div style="height:200px"><canvas id="ch-hist-compare"></canvas></div>
+      </div>
+
+      <!-- Ranking del año -->
+      <div class="card">
+        <div class="card-label">🏆 Top trabajadores – año seleccionado</div>
+        <div id="hist-ranking"></div>
+      </div>
+
+      <!-- Lista de años -->
+      <div style="margin-top:12px">
+        <div class="card-label" style="margin-bottom:8px">Todos los años registrados</div>
+        <div id="hist-years-list"></div>
+      </div>
+    </div>
 
 <!-- ═══ BOTTOM SHEET: EDITAR TURNOS TRABAJADOR ═══ -->
 <div class="sheet-overlay" id="edit-sheet">
@@ -1263,8 +1385,58 @@ const BASE = [
 // ════════════════════════════════════════════════════════
 // STATE
 // ════════════════════════════════════════════════════════
-let records = [...BASE];
-let photos  = [];
+// ── Persistencia: cargar datos guardados o usar BASE ──────────────────────
+function loadSavedRecords() {
+  try {
+    const saved = localStorage.getItem('ugt_records');
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+    }
+  } catch(e) {}
+  return [...BASE];
+}
+
+function loadSavedPhotos() {
+  try {
+    const saved = localStorage.getItem('ugt_photos');
+    if (saved) return JSON.parse(saved);
+  } catch(e) {}
+  return [];
+}
+
+function saveRecords() {
+  try {
+    localStorage.setItem('ugt_records', JSON.stringify(records));
+    // Sincronizar con el año activo en el historial
+    syncActiveYear();
+  } catch(e) {
+    toast('⚠', 'No se pudo guardar: almacenamiento lleno');
+  }
+}
+
+function savePhotos() {
+  try {
+    // Fotos sin imagen base64 para no llenar el storage
+    const slim = photos.map(p => ({
+      ape: p.ape, nom: p.nom, sem: p.sem, turno: p.turno, img: null
+    }));
+    localStorage.setItem('ugt_photos', JSON.stringify(slim));
+  } catch(e) {}
+}
+
+function resetToBase() {
+  if (!confirm('¿Borrar todos los cambios y volver a los datos originales de las semanas 1-15?')) return;
+  localStorage.removeItem('ugt_records');
+  localStorage.removeItem('ugt_photos');
+  records = [...BASE];
+  photos  = [];
+  renderHome();
+  toast('🔄', 'Datos restaurados a semanas 1-15');
+}
+
+let records = loadSavedRecords();
+let photos  = loadSavedPhotos();
 let camStream = null;
 let capturedImg = null;
 let wFilter = '';
@@ -1300,13 +1472,15 @@ function goPage(name, el) {
   document.querySelectorAll('.page').forEach(p=>{p.classList.remove('active');});
   document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
   const pg = document.getElementById('page-'+name);
+  if (!pg) return;
   pg.classList.add('active');
-  if(el) el.classList.add('active');
-  if(name==='home') renderHome();
-  if(name==='workers') renderWorkers();
-  if(name==='weeks') renderWeeks();
-  if(name==='rank') renderRank();
-  if(name==='cam') initCam();
+  if (el) el.classList.add('active');
+  if      (name==='home')    renderHome();
+  else if (name==='workers') renderWorkers();
+  else if (name==='weeks')   renderWeeks();
+  else if (name==='rank')    renderRank();
+  else if (name==='cam')     initCam();
+  else if (name==='hist')    renderHist();
 }
 
 // ════════════════════════════════════════════════════════
@@ -1318,7 +1492,9 @@ function renderHome() {
   const totM=acum.reduce((s,w)=>s+w.M,0), totT=acum.reduce((s,w)=>s+w.T,0), totN=acum.reduce((s,w)=>s+w.N,0);
   const tot=totM+totT+totN;
 
-  document.getElementById('dash-sub').textContent=`Semanas 1–${Math.max(...sems)} · ${acum.length} trabajadores · ${tot} turnos`;
+  const savedCount = records.length - BASE.length;
+  const savedLabel = savedCount > 0 ? ` · +${savedCount} nuevos` : '';
+  document.getElementById('dash-sub').textContent=`Semanas 1–${Math.max(...sems)} · ${acum.length} trabajadores · ${tot} turnos${savedLabel}`;
   document.getElementById('kpi-top').innerHTML=`
     <div class="kpi A full"><div class="kpi-lbl">Total turnos registrados</div><div class="kpi-val">${tot}</div><div class="kpi-sub">${sems.length} semanas · ${acum.length} trabajadores</div></div>`;
   document.getElementById('kpi-mid').innerHTML=`
@@ -1783,6 +1959,7 @@ function saveShift() {
   if (!wv || !sem) { toast('⚠', 'Rellena todos los campos'); return; }
   const [ape, nom] = wv.split('||');
   records.push([sem, ape, nom, turno]);
+  saveRecords();
   photos.push({ ape, nom, sem, turno, img: capturedImg });
   capturedImg = null;
   document.getElementById('preview-img').style.display = 'none';
@@ -1802,7 +1979,7 @@ function renderPhotos() {
     : `<div class="empty" style="grid-column:1/-1"><div class="empty-icon">🗂</div><p>Sin fotos aún</p></div>`;
 }
 
-function deletePhoto(i) { photos.splice(i, 1); renderPhotos(); }
+function deletePhoto(i) { photos.splice(i, 1); savePhotos(); renderPhotos(); }
 
 
 // ════════════════════════════════════════════════════════
@@ -2130,6 +2307,7 @@ function importScannedShifts() {
   const maxSem = Math.max(...records.map(r => r[0]));
   document.getElementById('sem-badge').textContent = `SEM ${maxSem}`;
 
+  saveRecords();
   toast('✅', `${imported} importados · ${skipped} ya existían`);
   document.getElementById('scan-result-area').innerHTML = '';
   scannedShifts = [];
@@ -2140,6 +2318,315 @@ function importScannedShifts() {
   cancelCrop();
 
   if (document.getElementById('page-home').classList.contains('active')) renderHome();
+}
+
+
+
+// ════════════════════════════════════════════════════════
+// SISTEMA DE HISTORIAL ANUAL
+// ════════════════════════════════════════════════════════
+
+// Estructura en localStorage:
+// ugt_years_index  → ['2025','2026',...]
+// ugt_year_2026    → { records: [...], createdAt: '...', weeks: [1..15] }
+// ugt_active_year  → '2026'
+
+let activeYear = '2026';
+
+function getYearsIndex() {
+  try {
+    const idx = localStorage.getItem('ugt_years_index');
+    if (idx) return JSON.parse(idx);
+  } catch(e) {}
+  return [];
+}
+
+function saveYearsIndex(arr) {
+  try { localStorage.setItem('ugt_years_index', JSON.stringify(arr)); } catch(e) {}
+}
+
+function getYearData(year) {
+  try {
+    const d = localStorage.getItem(`ugt_year_${year}`);
+    if (d) return JSON.parse(d);
+  } catch(e) {}
+  return null;
+}
+
+function saveYearData(year, data) {
+  try {
+    localStorage.setItem(`ugt_year_${year}`, JSON.stringify(data));
+  } catch(e) {
+    toast('⚠', 'Almacenamiento lleno');
+  }
+}
+
+function initYearSystem() {
+  // Si no hay años registrados, crear el 2026 con los datos actuales
+  let idx = getYearsIndex();
+  if (idx.length === 0) {
+    idx = ['2026'];
+    saveYearsIndex(idx);
+  }
+  // Guardar año activo
+  const saved = localStorage.getItem('ugt_active_year');
+  if (saved && idx.includes(saved)) {
+    activeYear = saved;
+  } else {
+    activeYear = idx[idx.length - 1];
+    localStorage.setItem('ugt_active_year', activeYear);
+  }
+  // Sincronizar records actuales con el año activo
+  syncActiveYear();
+}
+
+function syncActiveYear() {
+  // Guarda los records actuales en el año activo
+  const sems = [...new Set(records.map(r => r[0]))].sort((a,b) => a-b);
+  const yearData = {
+    year: activeYear,
+    records: records,
+    weeks: sems,
+    totalM: records.filter(r => r[3]==='MAÑANA').length,
+    totalT: records.filter(r => r[3]==='TARDE').length,
+    totalN: records.filter(r => r[3]==='NOCHE').length,
+    updatedAt: new Date().toLocaleDateString('es-ES')
+  };
+  saveYearData(activeYear, yearData);
+}
+
+function newYear() {
+  const idx = getYearsIndex();
+  const lastYear = parseInt(idx[idx.length - 1]) || 2026;
+  const nextYear = lastYear + 1;
+
+  // Confirmar
+  const confirm1 = confirm(
+    `¿Cerrar el año ${activeYear} e iniciar el año ${nextYear}?\n\n` +
+    `• Los datos del ${activeYear} quedarán guardados en el historial\n` +
+    `• La app empezará desde 0 para el ${nextYear}\n\n` +
+    `Pulsa Aceptar para continuar.`
+  );
+  if (!confirm1) return;
+
+  // Guardar año actual definitivamente
+  syncActiveYear();
+
+  // Actualizar índice
+  const newIdx = [...idx, String(nextYear)];
+  saveYearsIndex(newIdx);
+
+  // Cambiar año activo
+  activeYear = String(nextYear);
+  localStorage.setItem('ugt_active_year', activeYear);
+
+  // Limpiar records del nuevo año (empezar desde 0 sin BASE)
+  records = [];
+  saveRecords();
+
+  // Actualizar badge
+  document.getElementById('sem-badge').textContent = `${activeYear}`;
+
+  renderHist();
+  toast('🎉', `Año ${nextYear} iniciado. ¡A empezar!`);
+}
+
+function switchYear(year) {
+  // Guardar año actual antes de cambiar
+  syncActiveYear();
+
+  // Cargar datos del año seleccionado
+  const data = getYearData(year);
+  if (data && data.records) {
+    records = data.records;
+  } else {
+    records = year === '2026' ? [...BASE] : [];
+  }
+
+  activeYear = year;
+  localStorage.setItem('ugt_active_year', year);
+  saveRecords();
+
+  // Actualizar badge
+  const maxSem = records.length > 0 ? Math.max(...records.map(r=>r[0])) : 0;
+  document.getElementById('sem-badge').textContent = maxSem > 0 ? `SEM ${maxSem} · ${year}` : year;
+  document.getElementById('active-year-lbl').textContent = year;
+
+  renderHist();
+
+  // Si el dashboard está activo, actualizarlo
+  if (document.getElementById('page-home').classList.contains('active')) renderHome();
+
+  toast('📅', `Cambiado a año ${year}`);
+}
+
+function renderHist() {
+  const idx = getYearsIndex();
+  const lbl = document.getElementById('active-year-lbl');
+  if (lbl) lbl.textContent = activeYear;
+
+  // ── Tabs de años ──
+  const tabsEl = document.getElementById('year-tabs');
+  if (tabsEl) {
+    tabsEl.innerHTML = idx.map(y => {
+      const data = getYearData(y);
+      const sems = data ? data.weeks?.length || 0 : (y === '2026' ? 15 : 0);
+      return `<div class="year-tab ${y===activeYear?'active':''}" onclick="switchYear('${y}')">
+        ${y} <span class="badge-sems">S${sems}</span>
+      </div>`;
+    }).join('');
+  }
+
+  // ── KPIs año activo ──
+  const acum = buildAcum();
+  const sems = allSems();
+  const totM = acum.reduce((s,w)=>s+w.M,0);
+  const totT = acum.reduce((s,w)=>s+w.T,0);
+  const totN = acum.reduce((s,w)=>s+w.N,0);
+  const tot  = totM+totT+totN||1;
+
+  const kpisEl = document.getElementById('hist-kpis');
+  if (kpisEl) kpisEl.innerHTML = `
+    <div class="kpi M"><div class="kpi-lbl">🌅 Mañanas</div><div class="kpi-val">${totM}</div><div class="kpi-sub">${((totM/tot)*100).toFixed(1)}%</div></div>
+    <div class="kpi T"><div class="kpi-lbl">🌆 Tardes</div><div class="kpi-val">${totT}</div><div class="kpi-sub">${((totT/tot)*100).toFixed(1)}%</div></div>
+    <div class="kpi N"><div class="kpi-lbl">🌙 Noches</div><div class="kpi-val">${totN}</div><div class="kpi-sub">${((totN/tot)*100).toFixed(1)}%</div></div>`;
+
+  // ── Gráfico comparativo ──
+  const allYearsData = idx.map(y => {
+    const d = getYearData(y);
+    if (!d || !d.records) return { y, M:0, T:0, N:0 };
+    const recs = d.records;
+    return {
+      y,
+      M: recs.filter(r=>r[3]==='MAÑANA').length,
+      T: recs.filter(r=>r[3]==='TARDE').length,
+      N: recs.filter(r=>r[3]==='NOCHE').length
+    };
+  });
+
+  dc('hist-compare');
+  const ctxEl = document.getElementById('ch-hist-compare');
+  if (ctxEl && typeof Chart !== 'undefined') {
+    charts['hist-compare'] = new Chart(ctxEl, {
+      type: 'bar',
+      data: {
+        labels: allYearsData.map(d => d.y),
+        datasets: [
+          { label:'Mañana', data: allYearsData.map(d=>d.M), backgroundColor:'rgba(251,191,36,.7)', borderColor:'#fbbf24', borderWidth:1 },
+          { label:'Tarde',  data: allYearsData.map(d=>d.T), backgroundColor:'rgba(56,189,248,.7)',  borderColor:'#38bdf8', borderWidth:1 },
+          { label:'Noche',  data: allYearsData.map(d=>d.N), backgroundColor:'rgba(192,132,252,.7)', borderColor:'#c084fc', borderWidth:1 },
+        ]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        scales: {
+          x: { stacked:true, ticks:{color:'#5a607a',font:{size:10}}, grid:{color:'#1a1e2e'} },
+          y: { stacked:true, ticks:{color:'#5a607a',font:{size:10}}, grid:{color:'#1a1e2e'} }
+        },
+        plugins: { legend: { labels: { color:'#8890aa', font:{family:'Outfit',size:11}, boxWidth:12 } } }
+      }
+    });
+  }
+
+  // ── Ranking del año ──
+  const top15 = [...acum].sort((a,b)=>b.total-a.total).slice(0,15);
+  const maxT2 = top15[0]?.total||1;
+  const rankEl = document.getElementById('hist-ranking');
+  if (rankEl) rankEl.innerHTML = top15.map((w,i) => {
+    const nc = i===0?'g':i===1?'s':i===2?'b':'';
+    const pM = ((w.M/w.total||0)*100).toFixed(0);
+    const pT = ((w.T/w.total||0)*100).toFixed(0);
+    const pN = ((w.N/w.total||0)*100).toFixed(0);
+    return `<div class="rank-row" onclick="openWorkerSheet('${w.ape.replace(/'/g,"\\'")}','${w.nom.replace(/'/g,"\\'")}')">
+      <div class="rank-num ${nc}">${i+1}</div>
+      <div class="rank-info">
+        <div class="rank-ape">${w.ape}</div>
+        <div class="rank-nom">${w.nom}</div>
+        <div style="display:flex;gap:2px;height:4px;border-radius:2px;overflow:hidden;margin-top:4px;width:80px">
+          <div style="width:${pM}%;background:#fbbf24"></div>
+          <div style="width:${pT}%;background:#38bdf8"></div>
+          <div style="width:${pN}%;background:#c084fc"></div>
+        </div>
+      </div>
+      <div style="text-align:right;flex-shrink:0">
+        <div class="rank-count" style="color:var(--accent)">${w.total}</div>
+        <div style="font-size:.58rem;color:var(--muted)">${w.M}M·${w.T}T·${w.N}N</div>
+      </div>
+    </div>`;
+  }).join('');
+
+  // ── Lista todos los años ──
+  const listEl = document.getElementById('hist-years-list');
+  if (listEl) listEl.innerHTML = [...idx].reverse().map(y => {
+    const d = getYearData(y);
+    const recs = d?.records || (y==='2026'?records:[]);
+    const M2 = recs.filter(r=>r[3]==='MAÑANA').length;
+    const T2 = recs.filter(r=>r[3]==='TARDE').length;
+    const N2 = recs.filter(r=>r[3]==='NOCHE').length;
+    const tot2 = M2+T2+N2||1;
+    const workers = new Set(recs.map(r=>`${r[1]}||${r[2]}`)).size;
+    const sems2 = d?.weeks?.length || (y==='2026'?15:0);
+    return `<div class="hist-card" onclick="switchYear('${y}')">
+      <div style="display:flex;align-items:center;justify-content:space-between">
+        <div>
+          <div class="hist-card-year" style="color:${y===activeYear?'var(--accent)':'var(--text)'}">
+            ${y} ${y===activeYear?'<span style="font-size:.65rem;color:var(--accent)">● ACTIVO</span>':''}
+          </div>
+          <div class="hist-card-meta">${workers} trabajadores · ${sems2} semanas · ${tot2} turnos</div>
+        </div>
+        <div style="font-size:1.5rem;font-weight:900;color:var(--accent)">${tot2}</div>
+      </div>
+      <div class="hist-bars">
+        <div class="hist-bar-wrap">
+          <div class="hist-bar-val" style="color:#fbbf24">${M2}</div>
+          <div style="height:6px;background:var(--card2);border-radius:3px;overflow:hidden;margin:3px 0">
+            <div style="width:${((M2/tot2)*100).toFixed(0)}%;height:100%;background:#fbbf24"></div>
+          </div>
+          <div class="hist-bar-lbl">🌅 ${((M2/tot2)*100).toFixed(1)}%</div>
+        </div>
+        <div class="hist-bar-wrap">
+          <div class="hist-bar-val" style="color:#38bdf8">${T2}</div>
+          <div style="height:6px;background:var(--card2);border-radius:3px;overflow:hidden;margin:3px 0">
+            <div style="width:${((T2/tot2)*100).toFixed(0)}%;height:100%;background:#38bdf8"></div>
+          </div>
+          <div class="hist-bar-lbl">🌆 ${((T2/tot2)*100).toFixed(1)}%</div>
+        </div>
+        <div class="hist-bar-wrap">
+          <div class="hist-bar-val" style="color:#c084fc">${N2}</div>
+          <div style="height:6px;background:var(--card2);border-radius:3px;overflow:hidden;margin:3px 0">
+            <div style="width:${((N2/tot2)*100).toFixed(0)}%;height:100%;background:#c084fc"></div>
+          </div>
+          <div class="hist-bar-lbl">🌙 ${((N2/tot2)*100).toFixed(1)}%</div>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function exportYearExcel() {
+  const acum = buildAcum();
+  const sems = allSems();
+  const wb = XLSX.utils.book_new();
+
+  // Hoja resumen
+  const h1 = [['APELLIDOS','NOMBRE',...sems.map(s=>`S${s}`),'MAÑANAS','TARDES','NOCHES','TOTAL','%M','%T','%N']];
+  acum.forEach(w => {
+    const t = w.total||1;
+    h1.push([w.ape, w.nom, ...sems.map(s=>w.sems[s]||'-'),
+      w.M, w.T, w.N, w.total,
+      `${((w.M/t)*100).toFixed(1)}%`,
+      `${((w.T/t)*100).toFixed(1)}%`,
+      `${((w.N/t)*100).toFixed(1)}%`]);
+  });
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(h1), `Resumen ${activeYear}`);
+
+  // Hoja detalle
+  const h2 = [['SEMANA','APELLIDOS','NOMBRE','TURNO']];
+  [...records].sort((a,b)=>a[0]-b[0]||a[1].localeCompare(b[1])).forEach(r=>h2.push([r[0],r[1],r[2],r[3]]));
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(h2), `Detalle ${activeYear}`);
+
+  XLSX.writeFile(wb, `UGT_Turnos_${activeYear}.xlsx`);
+  toast('⬇', `Excel ${activeYear} exportado`);
 }
 
 
@@ -2216,7 +2703,45 @@ function saveEdits() {
   else if (active==='page-workers') renderWorkers();
   else if (active==='page-rank')    renderRank();
   else if (active==='page-weeks')   renderWeeks();
+  saveRecords();
   toast('✅', `${changed} cambiados · ${deleted} eliminados`);
+}
+
+
+// ════════════════════════════════════════════════════════
+// ADD SHIFT SHEET
+// ════════════════════════════════════════════════════════
+function openAddSheet() {
+  const acum = buildAcum();
+  const sel = document.getElementById('add-worker');
+  if (sel) sel.innerHTML = '<option value="">— Seleccionar —</option>' +
+    acum.map(w => `<option value="${w.ape}||${w.nom}">${w.ape}, ${w.nom}</option>`).join('');
+  openSheet('add-sheet');
+}
+
+function addShift() {
+  const newApe = (document.getElementById('add-ape')?.value||'').trim().toUpperCase();
+  const newNom = (document.getElementById('add-nom')?.value||'').trim().toUpperCase();
+  let ape, nom;
+  if (newApe && newNom) { ape = newApe; nom = newNom; }
+  else {
+    const v = document.getElementById('add-worker')?.value;
+    if (!v) { toast('⚠', 'Selecciona trabajador'); return; }
+    [ape, nom] = v.split('||');
+  }
+  const sem   = parseInt(document.getElementById('add-sem')?.value);
+  const turno = document.getElementById('add-turno')?.value;
+  if (!sem) { toast('⚠', 'Indica la semana'); return; }
+  records.push([sem, ape, nom, turno]);
+  saveRecords();
+  closeSheet('add-sheet');
+  // Limpiar campos
+  if (document.getElementById('add-ape')) document.getElementById('add-ape').value = '';
+  if (document.getElementById('add-nom')) document.getElementById('add-nom').value = '';
+  toast('✅', `${ape} – S${sem} – ${turno}`);
+  const active = document.querySelector('.page.active')?.id;
+  if (active === 'page-home') renderHome();
+  else if (active === 'page-workers') renderWorkers();
 }
 
 // ════════════════════════════════════════════════════════
@@ -2245,6 +2770,9 @@ function toast(icon, msg) {
 // ARRANQUE SEGURO – espera DOM + Chart.js
 // ════════════════════════════════════════════════════════
 function startApp() {
+  // Inicializar sistema de años
+  initYearSystem();
+
   // Cargar API Key guardada
   try {
     const saved = localStorage.getItem('ugt_api_key');
@@ -2257,7 +2785,12 @@ function startApp() {
     }
   } catch(e) {}
 
-  // Renderizar dashboard con fallback si Chart.js no cargó
+  // Actualizar badge con año activo
+  const maxSem = records.length > 0 ? Math.max(...records.map(r=>r[0])) : 0;
+  const badge = document.getElementById('sem-badge');
+  if (badge) badge.textContent = maxSem > 0 ? `SEM ${maxSem} · ${activeYear}` : activeYear;
+
+  // Renderizar dashboard
   try {
     if (typeof Chart === 'undefined') throw new Error('Chart.js no disponible');
     renderHome();
