@@ -1148,6 +1148,17 @@ hr { border: none; border-top: 1px solid var(--border); margin: 14px 0; }
         </button>
         <!-- Resultado del escaneo -->
         <div id="scan-result-area"></div>
+        <!-- Botón importar - SIEMPRE en el DOM, se muestra/oculta -->
+        <div id="import-btn-wrap" style="display:none;margin-top:12px">
+          <div style="display:flex;gap:6px;margin-bottom:10px">
+            <button class="big-btn outline" style="flex:1;padding:10px;font-size:.75rem" id="btn-all-on">✓ Todos</button>
+            <button class="big-btn outline" style="flex:1;padding:10px;font-size:.75rem" id="btn-all-off">✗ Ninguno</button>
+            <button class="big-btn outline" style="flex:1;padding:10px;font-size:.75rem" id="btn-fuzzy">~ Similares</button>
+          </div>
+          <button class="big-btn success full" id="btn-import" style="padding:16px;font-size:1rem;font-weight:800">
+            ⬇ IMPORTAR TURNOS SELECCIONADOS
+          </button>
+        </div>
       </div>
 
       <!-- MANUAL -->
@@ -1315,26 +1326,6 @@ hr { border: none; border-top: 1px solid var(--border); margin: 14px 0; }
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px">
       <div class="form-field" style="margin:0">
         <label class="form-lbl">Semana</label>
-        <input type="number" class="form-input" id="add-sem" min="1" max="52" value="16">
-      </div>
-      <div class="form-field" style="margin:0">
-        <label class="form-lbl">Turno</label>
-        <select class="form-input" id="add-turno">
-          <option value="MAÑANA">🌅 Mañana</option>
-          <option value="TARDE">🌆 Tarde</option>
-          <option value="NOCHE">🌙 Noche</option>
-        </select>
-      </div>
-    </div>
-    <button class="big-btn primary full" onclick="addShift()">✓ Guardar</button>
-    <button class="big-btn outline full" onclick="closeSheet('add-sheet')" style="margin-top:8px">Cancelar</button>
-  </div>
-</div>
-
-<!-- TOAST -->
-<div class="toast" id="toast"><span class="toast-icon" id="toast-icon"></span><span id="toast-msg"></span></div>
-
-<script>
 // ════════════════════════════════════════════════════════
 // DATA
 // ════════════════════════════════════════════════════════
@@ -2199,28 +2190,26 @@ Reglas:
 
 function renderScanResults(turnos, semana) {
   const area = document.getElementById('scan-result-area');
+  const wrap = document.getElementById('import-btn-wrap');
   const M = turnos.filter(t => t.turno==='MAÑANA').length;
   const T = turnos.filter(t => t.turno==='TARDE').length;
   const N = turnos.filter(t => t.turno==='NOCHE').length;
-  const exact  = turnos.filter(t => t.matchType==='exact').length;
-  const fuzzy  = turnos.filter(t => t.matchType==='fuzzy').length;
-  const newW   = turnos.filter(t => t.matchType==='new').length;
+  const exact = turnos.filter(t => t.matchType==='exact').length;
+  const fuzzy = turnos.filter(t => t.matchType==='fuzzy').length;
+  const newW  = turnos.filter(t => t.matchType==='new').length;
 
   const rows = turnos.map((t, i) => {
     const bc  = t.turno==='MAÑANA'?'M':t.turno==='TARDE'?'T':'N';
     const mbg = t.matchType==='exact'?'match-exact':t.matchType==='fuzzy'?'match-fuzzy':'match-new';
-    const mlbl= t.matchType==='exact'?'✓':t.matchType==='fuzzy'?'~':'★ nuevo';
+    const mlbl= t.matchType==='exact'?'✓':t.matchType==='fuzzy'?'~':'★';
     return `<div class="review-row">
-      <div class="review-check on" id="rchk-${i}" onclick="toggleReviewCheck(${i})">✓</div>
+      <div class="review-check on" id="rchk-${i}">✓</div>
       <div class="review-name-block">
-        <div class="review-ape" id="rape-${i}" contenteditable="true"
-          onblur="updateScanned(${i},'ape',this.textContent)">${t.apellidos}</div>
-        <input class="review-nom-input" id="rnom-${i}" value="${t.nombre}"
-          onchange="updateScanned(${i},'nom',this.value)">
+        <div class="review-ape" id="rape-${i}" contenteditable="true">${t.apellidos}</div>
+        <input class="review-nom-input" id="rnom-${i}" value="${t.nombre}">
       </div>
       <span class="match-badge ${mbg}">${mlbl}</span>
-      <select class="review-turno-sel ${bc}" id="rtur-${i}"
-        onchange="updateScanned(${i},'turno',this.value);this.className='review-turno-sel '+(this.value==='MAÑANA'?'M':this.value==='TARDE'?'T':'N')">
+      <select class="review-turno-sel ${bc}" id="rtur-${i}">
         <option value="MAÑANA" ${t.turno==='MAÑANA'?'selected':''}>🌅 M</option>
         <option value="TARDE"  ${t.turno==='TARDE' ?'selected':''}>🌆 T</option>
         <option value="NOCHE"  ${t.turno==='NOCHE' ?'selected':''}>🌙 N</option>
@@ -2235,52 +2224,59 @@ function renderScanResults(turnos, semana) {
         <div style="font-size:.65rem;color:var(--muted2);margin-top:3px">
           <span style="color:#fbbf24">🌅 ${M}</span> · <span style="color:#38bdf8">🌆 ${T}</span> · <span style="color:#c084fc">🌙 ${N}</span>
           &nbsp;·&nbsp;
-          <span style="color:var(--green)">✓ ${exact} exactos</span> ·
-          <span style="color:var(--M)">~ ${fuzzy} similares</span> ·
-          <span style="color:var(--red)">★ ${newW} nuevos</span>
+          <span style="color:var(--green)">✓ ${exact}</span> ·
+          <span style="color:var(--M)">~ ${fuzzy}</span> ·
+          <span style="color:var(--red)">★ ${newW}</span>
         </div>
-        <div style="font-size:.62rem;color:var(--muted);margin-top:4px">
-          Puedes editar apellido/nombre/turno antes de importar
-        </div>
-      </div>
-      <div style="display:flex;gap:6px;margin-bottom:10px">
-        <button class="big-btn outline" style="flex:1;padding:7px;font-size:.68rem" id="btn-all-on">✓ Todos</button>
-        <button class="big-btn outline" style="flex:1;padding:7px;font-size:.68rem" id="btn-all-off">✗ Ninguno</button>
-        <button class="big-btn outline" style="flex:1;padding:7px;font-size:.68rem" id="btn-fuzzy">~ Similares</button>
       </div>
       ${rows}
-      <button class="big-btn success full" style="margin-top:12px" id="btn-import">
-        ⬇ Importar seleccionados
-      </button>
     </div>`;
 
-  // Usar addEventListener en lugar de onclick en innerHTML
-  // para máxima compatibilidad en móvil
-  setTimeout(() => {
-    const btnImport = document.getElementById('btn-import');
-    const btnAllOn  = document.getElementById('btn-all-on');
-    const btnAllOff = document.getElementById('btn-all-off');
-    const btnFuzzy  = document.getElementById('btn-fuzzy');
-    if (btnImport) btnImport.addEventListener('click', importScannedShifts);
-    if (btnAllOn)  btnAllOn.addEventListener('click',  () => toggleAllReview(true));
-    if (btnAllOff) btnAllOff.addEventListener('click',  () => toggleAllReview(false));
-    if (btnFuzzy)  btnFuzzy.addEventListener('click',   selectOnlyFuzzy);
+  // Mostrar botones estáticos del DOM
+  if (wrap) wrap.style.display = 'block';
 
-    // Eventos para checkboxes y selects de cada fila
-    turnos.forEach((t, i) => {
-      const chk = document.getElementById(`rchk-${i}`);
-      const sel = document.getElementById(`rtur-${i}`);
-      const apeEl = document.getElementById(`rape-${i}`);
-      const nomEl = document.getElementById(`rnom-${i}`);
-      if (chk) chk.addEventListener('click', () => toggleReviewCheck(i));
-      if (sel) sel.addEventListener('change', () => {
-        updateScanned(i, 'turno', sel.value);
-        sel.className = 'review-turno-sel ' + (sel.value==='MAÑANA'?'M':sel.value==='TARDE'?'T':'N');
-      });
-      if (apeEl) apeEl.addEventListener('blur', () => updateScanned(i, 'ape', apeEl.textContent));
-      if (nomEl) nomEl.addEventListener('change', () => updateScanned(i, 'nom', nomEl.value));
+  // Conectar eventos a botones estáticos (siempre en el DOM)
+  const btnImport = document.getElementById('btn-import');
+  const btnAllOn  = document.getElementById('btn-all-on');
+  const btnAllOff = document.getElementById('btn-all-off');
+  const btnFuzzy  = document.getElementById('btn-fuzzy');
+
+  // Clonar y reemplazar para eliminar listeners anteriores
+  if (btnImport) {
+    const nb = btnImport.cloneNode(true);
+    btnImport.parentNode.replaceChild(nb, btnImport);
+    nb.addEventListener('click', importScannedShifts);
+  }
+  if (btnAllOn) {
+    const nb = btnAllOn.cloneNode(true);
+    btnAllOn.parentNode.replaceChild(nb, btnAllOn);
+    nb.addEventListener('click', () => toggleAllReview(true));
+  }
+  if (btnAllOff) {
+    const nb = btnAllOff.cloneNode(true);
+    btnAllOff.parentNode.replaceChild(nb, btnAllOff);
+    nb.addEventListener('click', () => toggleAllReview(false));
+  }
+  if (btnFuzzy) {
+    const nb = btnFuzzy.cloneNode(true);
+    btnFuzzy.parentNode.replaceChild(nb, btnFuzzy);
+    nb.addEventListener('click', selectOnlyFuzzy);
+  }
+
+  // Eventos para filas
+  turnos.forEach((t, i) => {
+    const chk   = document.getElementById(`rchk-${i}`);
+    const sel   = document.getElementById(`rtur-${i}`);
+    const apeEl = document.getElementById(`rape-${i}`);
+    const nomEl = document.getElementById(`rnom-${i}`);
+    if (chk) chk.addEventListener('click', () => toggleReviewCheck(i));
+    if (sel) sel.addEventListener('change', () => {
+      updateScanned(i, 'turno', sel.value);
+      sel.className = 'review-turno-sel ' + (sel.value==='MAÑANA'?'M':sel.value==='TARDE'?'T':'N');
     });
-  }, 50);
+    if (apeEl) apeEl.addEventListener('blur', () => updateScanned(i, 'ape', apeEl.textContent));
+    if (nomEl) nomEl.addEventListener('change', () => updateScanned(i, 'nom', nomEl.value));
+  });
 }
 
 function updateScanned(i, field, val) {
@@ -2342,6 +2338,8 @@ function importScannedShifts() {
   saveRecords();
   toast('✅', `${imported} importados · ${skipped} ya existían`);
   document.getElementById('scan-result-area').innerHTML = '';
+  const wrap = document.getElementById('import-btn-wrap');
+  if (wrap) wrap.style.display = 'none';
   scannedShifts = [];
   sectionCaptures = {};
   capturedImg = null;
@@ -2863,6 +2861,27 @@ function renderHomeFallback() {
         <div style="display:flex;gap:2px;height:6px;border-radius:3px;overflow:hidden">
           <div style="width:${(w.M/maxT*100).toFixed(0)}%;background:#fbbf24"></div>
           <div style="width:${(w.T/maxT*100).toFixed(0)}%;background:#38bdf8"></div>
+          <div style="width:${(w.N/maxT*100).toFixed(0)}%;background:#c084fc"></div>
+        </div>
+      </div>
+      <div style="font-size:.85rem;font-weight:800;color:var(--accent);flex-shrink:0">${w.total}</div>
+    </div>`).join('');
+
+  // Placeholder donde irían los gráficos
+  ['ch-donut','ch-weekly','ch-line'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el && el.parentElement) {
+      el.parentElement.innerHTML = `<div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--muted);font-size:.72rem;gap:6px"><span>⚠</span> Cargando gráficos...</div>`;
+    }
+  });
+}
+
+// Arrancar cuando DOM esté listo
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', startApp);
+} else {
+  startApp();
+}
           <div style="width:${(w.N/maxT*100).toFixed(0)}%;background:#c084fc"></div>
         </div>
       </div>
