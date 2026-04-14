@@ -438,6 +438,19 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Outfit
   .pages { padding: 28px 36px; }
 }
 
+
+/* ── MODO ESCANEO ── */
+.scan-mode-tabs{display:flex;gap:6px;margin-bottom:10px}
+.scan-mode-tab{flex:1;padding:9px 6px;border-radius:10px;font-size:.7rem;font-weight:700;
+  text-align:center;border:1px solid var(--border);background:var(--card2);
+  color:var(--muted2);cursor:pointer;-webkit-user-select:none;transition:all .15s}
+.scan-mode-tab.active{background:rgba(34,211,238,.12);border-color:var(--accent);color:var(--accent)}
+.scan-progress{display:none;align-items:center;gap:10px;padding:12px;
+  background:var(--card2);border-radius:10px;margin-bottom:8px}
+.scan-progress.visible{display:flex}
+.scan-progress-bar-wrap{flex:1;height:6px;background:var(--border);border-radius:3px;overflow:hidden}
+.scan-progress-bar{height:100%;background:var(--accent);border-radius:3px;transition:width .4s}
+
 </style>
 </head>
 <body>
@@ -556,6 +569,22 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Outfit
           <button class="big-btn danger" style="padding:11px 11px;flex-shrink:0" id="btn-del-key">🗑</button>
         </div>
         <div class="key-status" id="key-status">Sin API Key guardada</div>
+        <!-- Modo de escaneo -->
+        <div class="scan-mode-tabs">
+          <div class="scan-mode-tab active" id="mode-simple" onclick="setScanMode('simple',this)">
+            🔍 Escaneo rápido
+          </div>
+          <div class="scan-mode-tab" id="mode-deep" onclick="setScanMode('deep',this)">
+            🔬 Escaneo profundo<br><span style="font-size:.6rem;opacity:.7">3 pasadas · más preciso</span>
+          </div>
+        </div>
+        <!-- Progreso -->
+        <div class="scan-progress" id="scan-progress">
+          <div style="font-size:.72rem;color:var(--muted2);flex-shrink:0" id="scan-progress-txt">Analizando...</div>
+          <div class="scan-progress-bar-wrap">
+            <div class="scan-progress-bar" id="scan-progress-bar" style="width:0%"></div>
+          </div>
+        </div>
         <button class="big-btn full" id="btn-scan" style="background:linear-gradient(135deg,#7c3aed,#2563eb);color:#fff">
           🤖 Escanear cuadrante con IA
         </button>
@@ -1266,66 +1295,172 @@ function fuzzyMatch(apellidos, nombre) {
   return {match:null,type:'new'};
 }
 
-async function scanCuadrante() {
-  if (!anthropicKey){toast('⚠','Primero guarda tu API Key');return;}
-  if (!capturedImg){toast('⚠','Primero captura o sube una foto');return;}
+let scanMode = 'simple';
 
-  document.getElementById('scan-result-area').innerHTML = `
-    <div class="scan-result-box" style="text-align:center;padding:20px">
-      <div class="scan-spinner" style="margin:0 auto 10px"></div>
-      <div style="font-size:.78rem;color:var(--muted2)">Analizando cuadrante con IA...</div>
-    </div>`;
-  document.getElementById('import-wrap').style.display='none';
+function setScanMode(mode, el) {
+  scanMode = mode;
+  document.querySelectorAll('.scan-mode-tab').forEach(t=>t.classList.remove('active'));
+  el.classList.add('active');
+}
 
-  const semana = document.getElementById('cam-sem').value||'?';
+function setProgress(pct, txt) {
+  const bar = document.getElementById('scan-progress-bar');
+  const label = document.getElementById('scan-progress-txt');
+  const wrap = document.getElementById('scan-progress');
+  if (bar) bar.style.width = pct + '%';
+  if (label) label.textContent = txt;
+  if (wrap) wrap.classList[pct > 0 && pct < 100 ? 'add' : 'remove']('visible');
+}
+
+async function callClaudeVision(base64, mediaType, extraHint) {
   const knownList = buildAcum().map(w=>`${w.ape}, ${w.nom}`).join('\n');
+  const prompt = `Eres un experto en leer cuadrantes de turnos de trabajo de fábricas españolas.
 
-  try {
-    const base64=capturedImg.split(',')[1];
-    const mediaType=capturedImg.startsWith('data:image/png')?'image/png':'image/jpeg';
-    const prompt=`Eres un experto en leer cuadrantes de turnos de trabajo españoles.
+${extraHint}
 
-LISTA DE TRABAJADORES CONOCIDOS (úsala para corregir nombres):
+LISTA DE TRABAJADORES CONOCIDOS — usa esta lista para corregir errores tipográficos:
 ${knownList}
 
-Extrae TODOS los trabajadores con su turno (MAÑANA/TARDE/NOCHE).
-NO incluyas vacaciones, permisos ni bajas.
+INSTRUCCIONES:
+- Extrae ABSOLUTAMENTE TODOS los trabajadores visibles con su turno
+- Los turnos son: MAÑANA (7-15h / 8-16h), TARDE (15-23h / 16-24h), NOCHE (23-7h)
+- NO incluyas personas en vacaciones, permisos o bajas
+- Si un nombre se parece a uno de la lista conocida, usa el de la lista
+- Sé exhaustivo: no te dejes ninguno
 
 Devuelve ÚNICAMENTE JSON válido sin markdown:
-{"semana":<número>,"turnos":[{"apellidos":"APELLIDOS","nombre":"NOMBRE","turno":"MAÑANA|TARDE|NOCHE"},...]}`;
+{"semana":<número o null>,"turnos":[{"apellidos":"APELLIDOS","nombre":"NOMBRE","turno":"MAÑANA|TARDE|NOCHE"},...]}`
 
-    const resp = await fetch('https://api.anthropic.com/v1/messages',{
-      method:'POST',
-      headers:{'Content-Type':'application/json','x-api-key':anthropicKey,
-        'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
-      body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:4096,
-        messages:[{role:'user',content:[
-          {type:'image',source:{type:'base64',media_type:mediaType,data:base64}},
-          {type:'text',text:prompt}
-        ]}]})
+  const resp = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-api-key': anthropicKey,
+      'anthropic-version': '2023-06-01',
+      'anthropic-dangerous-direct-browser-access': 'true'
+    },
+    body: JSON.stringify({
+      model: 'claude-sonnet-4-20250514',
+      max_tokens: 4096,
+      messages: [{ role: 'user', content: [
+        { type: 'image', source: { type: 'base64', media_type: mediaType, data: base64 } },
+        { type: 'text', text: prompt }
+      ]}]
+    })
+  });
+  if (!resp.ok) { const e = await resp.json(); throw new Error(e.error?.message || `Error ${resp.status}`); }
+  const data = await resp.json();
+  const text = data.content[0].text.trim().replace(/```json|```/g,'').trim();
+  return JSON.parse(text);
+}
+
+function splitImageIntoStripes(base64, mediaType, numStripes) {
+  return new Promise(resolve => {
+    const img = new Image();
+    img.onload = () => {
+      const stripes = [];
+      const stripeH = Math.floor(img.height / numStripes);
+      for (let s = 0; s < numStripes; s++) {
+        const canvas = document.createElement('canvas');
+        // Añadir 10% de solapamiento para no perder filas en los bordes
+        const y = Math.max(0, s * stripeH - Math.floor(stripeH * 0.1));
+        const h = Math.min(img.height - y, stripeH + Math.floor(stripeH * 0.2));
+        canvas.width = img.width;
+        canvas.height = h;
+        canvas.getContext('2d').drawImage(img, 0, y, img.width, h, 0, 0, img.width, h);
+        stripes.push(canvas.toDataURL('image/jpeg', 0.92).split(',')[1]);
+      }
+      resolve(stripes);
+    };
+    img.src = `data:${mediaType};base64,${base64}`;
+  });
+}
+
+async function scanCuadrante() {
+  if (!anthropicKey) { toast('⚠','Primero guarda tu API Key'); return; }
+  if (!capturedImg)  { toast('⚠','Primero captura o sube una foto'); return; }
+
+  document.getElementById('scan-result-area').innerHTML = '';
+  document.getElementById('import-wrap').style.display = 'none';
+  setProgress(5, 'Preparando imagen...');
+
+  const semana = document.getElementById('cam-sem').value || '?';
+  const base64 = capturedImg.split(',')[1];
+  const mediaType = capturedImg.startsWith('data:image/png') ? 'image/png' : 'image/jpeg';
+
+  try {
+    let allTurnos = [];
+    let detectedSemana = null;
+
+    if (scanMode === 'simple') {
+      // ── Escaneo rápido: una sola llamada ───────────────────────────
+      setProgress(30, 'Analizando cuadrante...');
+      const result = await callClaudeVision(base64, mediaType,
+        'La imagen muestra el cuadrante COMPLETO de turnos. Extrae todos los trabajadores.');
+      allTurnos = result.turnos || [];
+      detectedSemana = result.semana;
+      setProgress(90, `Detectados ${allTurnos.length} trabajadores...`);
+
+    } else {
+      // ── Escaneo profundo: 3 franjas + imagen completa ──────────────
+      setProgress(10, 'Dividiendo imagen en franjas...');
+      const stripes = await splitImageIntoStripes(base64, mediaType, 3);
+
+      const hints = [
+        'Esta imagen muestra la PARTE SUPERIOR del cuadrante (primera mitad de trabajadores). Extrae todos los visibles.',
+        'Esta imagen muestra la PARTE CENTRAL del cuadrante (trabajadores del medio). Extrae todos los visibles.',
+        'Esta imagen muestra la PARTE INFERIOR del cuadrante (última mitad de trabajadores). Extrae todos los visibles.'
+      ];
+
+      const seenKeys = new Set();
+
+      for (let s = 0; s < stripes.length; s++) {
+        setProgress(15 + s * 25, `Analizando franja ${s+1} de ${stripes.length}...`);
+        try {
+          const result = await callClaudeVision(stripes[s], 'image/jpeg', hints[s]);
+          if (!detectedSemana && result.semana) detectedSemana = result.semana;
+          for (const t of (result.turnos || [])) {
+            // Deduplicar por apellidos+nombre normalizado
+            const key = (t.apellidos + '|' + t.nombre).toUpperCase().replace(/[^A-Z|]/g,'');
+            if (!seenKeys.has(key)) {
+              seenKeys.add(key);
+              allTurnos.push(t);
+            }
+          }
+        } catch(e) {
+          console.warn(`Franja ${s+1} falló:`, e.message);
+        }
+      }
+      setProgress(90, `Combinando resultados...`);
+    }
+
+    // Fuzzy matching
+    scannedShifts = allTurnos.map(t => {
+      const m = fuzzyMatch(t.apellidos, t.nombre);
+      return {
+        apellidos: m.match ? m.match.ape : t.apellidos,
+        nombre:    m.match ? m.match.nom : t.nombre,
+        turno:     t.turno,
+        matchType: m.type
+      };
     });
 
-    if (!resp.ok){const e=await resp.json();throw new Error(e.error?.message||`Error ${resp.status}`);}
-    const data=await resp.json();
-    const text=data.content[0].text.trim().replace(/```json|```/g,'').trim();
-    const result=JSON.parse(text);
-    scannedShifts=(result.turnos||[]).map(t=>{
-      const m=fuzzyMatch(t.apellidos,t.nombre);
-      return {apellidos:m.match?m.match.ape:t.apellidos,nombre:m.match?m.match.nom:t.nombre,
-        turno:t.turno,matchType:m.type};
-    });
-    if (result.semana) document.getElementById('cam-sem').value=result.semana;
-    renderScanResults(scannedShifts, document.getElementById('cam-sem').value);
-    toast('✅',`IA detectó ${scannedShifts.length} trabajadores`);
+    if (detectedSemana) document.getElementById('cam-sem').value = detectedSemana;
+    setProgress(0, '');
+    renderScanResults(scannedShifts, document.getElementById('cam-sem').value || semana);
+    toast('✅', `IA detectó ${scannedShifts.length} trabajadores`);
+
   } catch(err) {
-    document.getElementById('scan-result-area').innerHTML=`
+    setProgress(0, '');
+    document.getElementById('scan-result-area').innerHTML = `
       <div class="scan-result-box" style="border-color:var(--red)">
         <div style="color:var(--red);font-weight:700;margin-bottom:6px">❌ Error al escanear</div>
         <div style="color:var(--muted2);font-size:.72rem">${err.message}</div>
       </div>`;
-    toast('❌','Error: '+err.message.slice(0,40));
+    toast('❌', 'Error: ' + err.message.slice(0,40));
   }
 }
+
 
 function renderScanResults(turnos, semana) {
   const M=turnos.filter(t=>t.turno==='MAÑANA').length;
@@ -1428,23 +1563,28 @@ function renderScanResults(turnos, semana) {
   });
 
   // Seleccionar todos / ninguno
+  // Botones seleccionar todos/ninguno — se usan onclick directamente
   const btnAll = document.getElementById('btn-sel-all');
   const btnNone = document.getElementById('btn-sel-none');
-  if (btnAll) btnAll.addEventListener('click', () => {
-    turnos.forEach((_,i) => {
+  if (btnAll) {
+    const nb = btnAll.cloneNode(true);
+    btnAll.parentNode.replaceChild(nb, btnAll);
+    nb.onclick = () => turnos.forEach((_,i) => {
       const row = document.getElementById(`rrow-${i}`);
       const chk = document.getElementById(`rc-${i}`);
       if (row && !row.classList.contains('deleted') && chk) {
         chk.classList.add('on'); chk.textContent = '✓';
       }
     });
-  });
-  if (btnNone) btnNone.addEventListener('click', () => {
-    turnos.forEach((_,i) => {
+  }
+  if (btnNone) {
+    const nb = btnNone.cloneNode(true);
+    btnNone.parentNode.replaceChild(nb, btnNone);
+    nb.onclick = () => turnos.forEach((_,i) => {
       const chk = document.getElementById(`rc-${i}`);
       if (chk) { chk.classList.remove('on'); chk.textContent = ''; }
     });
-  });
+  }
 }
 
 
@@ -1457,7 +1597,7 @@ function importScannedShifts() {
     if(!chk||!chk.classList.contains('on')) return;
     const ape=(document.getElementById(`ra-${i}`)?.value||scannedShifts[i].apellidos).trim().toUpperCase();
     const nom=(document.getElementById(`rn-${i}`)?.value||scannedShifts[i].nombre).trim().toUpperCase();
-    const turno=document.getElementById(`rt-${i}`)?.value||scannedShifts[i].turno;
+    const turno=scannedShifts[i].turno||'MAÑANA';
     const exists=records.some(r=>r[0]===semana&&normalizeStr(r[1])===normalizeStr(ape)&&normalizeStr(r[2])===normalizeStr(nom));
     if(!exists){records.push([semana,ape,nom,turno]);imported++;}else skipped++;
   });
@@ -1730,13 +1870,10 @@ document.addEventListener('DOMContentLoaded', ()=>{
   document.getElementById('btn-save-key').addEventListener('click', saveApiKey);
   document.getElementById('btn-del-key').addEventListener('click', deleteApiKey);
   document.getElementById('btn-scan').addEventListener('click', scanCuadrante);
-  document.getElementById('btn-todos').addEventListener('click', ()=>{
-    document.querySelectorAll('[id^="rc-"]').forEach(c=>{c.classList.add('on');c.textContent='✓';});
-  });
-  document.getElementById('btn-ninguno').addEventListener('click', ()=>{
-    document.querySelectorAll('[id^="rc-"]').forEach(c=>{c.classList.remove('on');c.textContent='';});
-  });
-  document.getElementById('btn-importar').addEventListener('click', importScannedShifts);
+  // btn-todos y btn-ninguno se registran en renderScanResults
+  // btn-importar: onclick directo para evitar listeners duplicados
+  const btnImp = document.getElementById('btn-importar');
+  if (btnImp) btnImp.onclick = importScannedShifts;
   document.getElementById('btn-new-year').addEventListener('click', newYear);
 
   // Renderizar
