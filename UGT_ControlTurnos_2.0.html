@@ -500,6 +500,66 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Outfit
 .hours-log-desc{flex:1;color:var(--text)}
 .hours-log-h{font-weight:800;color:#dc143c;flex-shrink:0;width:40px;text-align:right}
 
+
+/* ═══════════════════════════════════════════════════
+   MÓVIL — forzar layout correcto < 768px
+═══════════════════════════════════════════════════ */
+@media (max-width: 767px) {
+  html, body { overflow: hidden; }
+  .app {
+    display: flex !important;
+    flex-direction: column !important;
+    height: 100vh !important;
+    max-width: 100% !important;
+    grid-template-columns: none !important;
+    grid-template-rows: none !important;
+    grid-template-areas: none !important;
+  }
+  .header {
+    grid-area: unset !important;
+    height: var(--header-h) !important;
+    flex-shrink: 0;
+  }
+  .pages {
+    grid-area: unset !important;
+    flex: 1 !important;
+    overflow-y: auto !important;
+    padding: 14px 14px 80px !important;
+    height: auto !important;
+  }
+  .nav {
+    grid-area: unset !important;
+    height: var(--nav-h) !important;
+    flex-direction: row !important;
+    justify-content: flex-start !important;
+    align-items: center !important;
+    border-top: 1px solid var(--border) !important;
+    border-right: none !important;
+    padding: 0 4px !important;
+    overflow-x: auto !important;
+    overflow-y: hidden !important;
+    flex-shrink: 0 !important;
+    width: 100% !important;
+  }
+  .nav-item {
+    flex-direction: column !important;
+    justify-content: center !important;
+    align-items: center !important;
+    gap: 2px !important;
+    padding: 6px 10px !important;
+    flex-shrink: 0 !important;
+    min-width: 52px !important;
+    flex: unset !important;
+  }
+  .nav-item .nav-label { display: block !important; font-size: .55rem !important; }
+  .nav-item.cam-btn {
+    flex-direction: column !important;
+    padding: 8px 14px !important;
+    margin: 0 4px !important;
+  }
+  .nav-item.cam-btn .nav-label { color: #000 !important; }
+}
+
 </style>
 </head>
 <body>
