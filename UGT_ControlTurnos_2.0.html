@@ -43,7 +43,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Outfit
 .icon-btn:active{transform:scale(.9)}
 
 /* PAGES */
-.pages{flex:1;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;padding:14px 14px 80px}
+.pages{flex:1;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;padding:14px 14px 24px}
 .page{display:none}
 .page.active{display:block}
 .section-title{font-size:1.1rem;font-weight:900;color:var(--text);margin-bottom:14px}
@@ -117,20 +117,6 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Outfit
 .rank-nom{font-size:.62rem;color:var(--muted2)}
 .rank-count{font-size:1.1rem;font-weight:800;flex-shrink:0}
 
-/* NAV */
-.nav{height:var(--nav-h);background:var(--card);border-top:1px solid var(--border);
-  display:flex;align-items:center;justify-content:flex-start;flex-shrink:0;z-index:100;
-  overflow-x:auto;overflow-y:hidden;scrollbar-width:none;padding:0 4px;gap:2px;
-  position:relative;width:100%}
-.nav::-webkit-scrollbar{display:none}
-.nav-item{display:flex;flex-direction:column;align-items:center;gap:2px;cursor:pointer;
-  padding:6px 10px;border-radius:10px;-webkit-user-select:none;transition:all .15s;
-  flex-shrink:0;min-width:52px}
-.nav-item.active .nav-icon{opacity:1}.nav-item .nav-icon{font-size:1.2rem;opacity:.45;transition:opacity .2s}
-.nav-item.active .nav-label{color:var(--accent)}.nav-label{font-size:.55rem;color:var(--muted);font-weight:600;white-space:nowrap}
-.nav-item.cam-btn{background:var(--accent);border-radius:14px;padding:8px 14px;
-  flex-shrink:0;margin:0 4px}
-.nav-item.cam-btn .nav-icon{opacity:1;font-size:1.4rem}
 
 /* SHEETS */
 .sheet-overlay{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:100;
@@ -373,145 +359,59 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Outfit
 /* ═══════════════════════════════════════════════════
    PC — solo afecta pantallas >= 900px
 ═══════════════════════════════════════════════════ */
-@media (min-width: 900px) {
-  html, body { overflow: auto; }
 
-  .app {
-    max-width: 100%;
-    flex-direction: row;
-    flex-wrap: wrap;
+
+
+/* NAV — barra horizontal arriba, scrollable */
+.nav{display:flex;align-items:center;background:var(--card);
+  border-bottom:1px solid var(--border);overflow-x:auto;overflow-y:hidden;
+  scrollbar-width:none;padding:0 6px;gap:2px;flex-shrink:0;height:50px}
+.nav::-webkit-scrollbar{display:none}
+.nav-item{display:flex;flex-direction:row;align-items:center;gap:5px;
+  cursor:pointer;padding:8px 12px;border-radius:10px;white-space:nowrap;
+  flex-shrink:0;-webkit-user-select:none;transition:all .15s;height:38px}
+.nav-item .nav-icon{font-size:1rem;opacity:.5;transition:opacity .2s}
+.nav-item .nav-label{font-size:.72rem;color:var(--muted);font-weight:600}
+.nav-item.active{background:rgba(34,211,238,.1)}
+.nav-item.active .nav-icon{opacity:1}
+.nav-item.active .nav-label{color:var(--accent)}
+.nav-item.cam-btn{background:var(--accent);border-radius:10px;padding:8px 14px}
+.nav-item.cam-btn .nav-icon{opacity:1;color:#000}
+.nav-item.cam-btn .nav-label{color:#000;font-weight:700}
+
+/* LAYOUT */
+.app{display:flex;flex-direction:column;height:100vh;max-width:100%;margin:0 auto}
+.pages{flex:1;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;
+  padding:14px 14px 24px}
+
+/* PC — sidebar izquierdo cuando hay espacio */
+@media (min-width:900px){
+  .app{
+    display:grid;
+    grid-template-columns:200px 1fr;
+    grid-template-rows:60px 1fr;
+    grid-template-areas:"header header" "sidebar main";
+    max-width:100%;
   }
-
-  .header {
-    width: 100%;
-    flex-shrink: 0;
-    height: 60px;
-    padding: 0 24px;
+  .header{grid-area:header;max-width:100%;padding:0 24px}
+  .nav{
+    grid-area:sidebar;
+    flex-direction:column;align-items:stretch;justify-content:flex-start;
+    height:100%;overflow-y:auto;overflow-x:hidden;
+    border-bottom:none;border-right:1px solid var(--border);
+    padding:12px 8px;gap:3px;
   }
-
-  .nav {
-    width: 200px;
-    height: calc(100vh - 60px);
-    flex-direction: column;
-    justify-content: flex-start;
-    align-items: stretch;
-    border-top: none;
-    border-right: 1px solid var(--border);
-    padding: 12px 8px;
-    gap: 4px;
-    overflow-y: auto;
-    overflow-x: hidden;
-    flex-shrink: 0;
-  }
-
-  .nav-item {
-    flex-direction: row;
-    justify-content: flex-start;
-    gap: 10px;
-    padding: 11px 14px;
-    min-width: unset;
-    border-radius: 12px;
-    flex: 0 0 auto;
-  }
-
-  .nav-item .nav-icon { font-size: 1.1rem; opacity: .6; }
-  .nav-item .nav-label {
-    font-size: .78rem;
-    color: var(--muted2);
-    font-weight: 600;
-    white-space: nowrap;
-  }
-  .nav-item.active { background: rgba(34,211,238,.1); }
-  .nav-item.active .nav-icon { opacity: 1; }
-  .nav-item.active .nav-label { color: var(--accent); }
-
-  .nav-item.cam-btn {
-    background: var(--accent);
-    border-radius: 12px;
-    margin: 4px 0;
-    padding: 11px 14px;
-    flex-direction: row;
-    justify-content: flex-start;
-    flex: 0 0 auto;
-  }
-  .nav-item.cam-btn .nav-label { color: #000; font-weight: 700; }
-  .nav-item.cam-btn .nav-icon { color: #000; opacity: 1; }
-
-  .pages {
-    padding-top: 12px;
-    flex: 1;
-    height: calc(100vh - 60px);
-    padding: 24px 32px 24px;
-    overflow-y: auto;
-    overflow-x: hidden;
-  }
-
-  .sheet-overlay { align-items: center; justify-content: center; }
-  .sheet { border-radius: 16px; max-width: 520px; max-height: 80vh; }
-  .toast { bottom: 24px; }
-  .section-title { font-size: 1.3rem; }
-  #page-rank .chart-wrap { height: 420px !important; }
-  #hist-years-list { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-  .hist-card:hover, .worker-item:hover, .rank-row:hover, .sem-row:hover {
-    background: rgba(34,211,238,.04); border-radius: 8px; transition: background .15s;
-  }
-
-/* ───────── MENÚ SUPERIOR OPTIMIZADO PARA MÓVIL ───────── */
-
-.top-nav {
-  position: sticky;
-  top: var(--header-h);
-  z-index: 90;
-  background: var(--card);
-  border-bottom: 1px solid var(--border);
-  height: 56px;
-}
-
-.top-nav-scroll {
-  display: flex;
-  align-items: center;
-  height: 100%;
-  overflow-x: auto;
-  scrollbar-width: none;
-}
-
-.top-nav-scroll::-webkit-scrollbar {
-  display: none;
-}
-
-.top-item {
-  min-width: 64px;
-  height: 100%;
-  padding: 6px 10px;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  align-items: center;
-  gap: 2px;
-  cursor: pointer;
-  user-select: none;
-  color: var(--muted2);
-  font-weight: 700;
-}
-
-.top-item span {
-  font-size: 1.2rem;
-}
-
-.top-item small {
-  font-size: .55rem;
-}
-
-.top-item.active {
-  color: var(--accent);
-  background: rgba(34,211,238,.08);
-}
-
-.top-item.cam {
-  color: #000;
-  background: var(--accent);
-  border-radius: 10px;
-  margin: 0 4px;
+  .nav-item{height:auto;padding:10px 12px;border-radius:10px}
+  .nav-item .nav-icon{font-size:1.1rem}
+  .nav-item .nav-label{font-size:.78rem}
+  .nav-item.cam-btn{padding:10px 12px}
+  .pages{grid-area:main;padding:20px 24px 24px}
+  .sheet-overlay{align-items:center;justify-content:center}
+  .sheet{border-radius:16px;max-width:520px;width:100%;max-height:80vh;padding:24px 28px 28px}
+  .toast{bottom:24px}
+  #page-rank .chart-wrap{height:400px!important}
+  #hist-years-list{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .dash-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
 }
 
 </style>
@@ -531,6 +431,30 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Outfit
       <div class="icon-btn" onclick="exportExcel()" title="Exportar">⬇</div>
     </div>
   </header>
+  <nav class="nav">
+    <div class="nav-item active" onclick="goPage('home',this)">
+      <div class="nav-icon">📊</div><div class="nav-label">Inicio</div>
+    </div>
+    <div class="nav-item" onclick="goPage('workers',this)">
+      <div class="nav-icon">👥</div><div class="nav-label">Equipo</div>
+    </div>
+    <div class="nav-item cam-btn" onclick="goPage('cam',this)">
+      <div class="nav-icon">📷</div>
+      <div class="nav-label">Cámara</div>
+    </div>
+    <div class="nav-item" onclick="goPage('rank',this)">
+      <div class="nav-icon">🏆</div><div class="nav-label">Ranking</div>
+    </div>
+    <div class="nav-item" onclick="goPage('vac',this)">
+      <div class="nav-icon">📋</div><div class="nav-label">Ausencias</div>
+    </div>
+    <div class="nav-item" onclick="goPage('hist',this)">
+      <div class="nav-icon">📅</div><div class="nav-label">Historial</div>
+    </div>
+    <div class="nav-item" onclick="goPage('sind',this)">
+      <div class="nav-icon">🔴</div><div class="nav-label">S.Sindicales</div>
+    </div>
+  </nav>
 
   <!-- PAGES -->
   <div class="pages">
@@ -784,47 +708,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Outfit
   </div><!-- /pages -->
 
   <!-- NAV -->
-
-<nav class="top-nav">
-  <div class="top-nav-scroll">
-
-    <div class="top-item active" onclick="goPage('home',this)">
-      <span>📊</span>
-      <small>Inicio</small>
-    </div>
-
-    <div class="top-item" onclick="goPage('workers',this)">
-      <span>👥</span>
-      <small>Equipo</small>
-    </div>
-
-    <div class="top-item cam" onclick="goPage('cam',this)">
-      <span>📷</span>
-      <small>Cámara</small>
-    </div>
-
-    <div class="top-item" onclick="goPage('rank',this)">
-      <span>🏆</span>
-      <small>Ranking</small>
-    </div>
-
-    <div class="top-item" onclick="goPage('vac',this)">
-      <span>📋</span>
-      <small>Ausencias</small>
-    </div>
-
-    <div class="top-item" onclick="goPage('hist',this)">
-      <span>📅</span>
-      <small>Historial</small>
-    </div>
-
-    <div class="top-item" onclick="goPage('sind',this)">
-      <span>🔴</span>
-      <small>Sindical</small>
-    </div>
-
-  </div>
-</nav>
+  
 
   <!-- TOAST -->
   <div class="toast" id="toast"><span id="toast-icon"></span> <span id="toast-msg"></span></div>
@@ -1136,7 +1020,7 @@ function dc(id) { if (charts[id]) { charts[id].destroy(); delete charts[id]; } }
 
 function goPage(name, el) {
   document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
-  document.querySelectorAll('.top-item').forEach(n=>n.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
   const pg = document.getElementById('page-'+name);
   if (!pg) return;
   pg.classList.add('active');
