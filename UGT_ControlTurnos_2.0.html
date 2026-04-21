@@ -23,11 +23,11 @@
 }
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
 html,body{margin:0;padding:0;background:var(--bg);color:var(--text);font-family:'Outfit',system-ui,sans-serif;overflow:hidden;height:100%}
-.app{display:flex;flex-direction:column;width:100%;position:fixed;top:0;left:0;right:0;bottom:0;overflow:hidden}
+.app{width:100%;position:fixed;top:0;left:0;right:0;bottom:0;overflow:hidden}
 
 /* HEADER */
-.header{height:var(--header-h);background:var(--card);border-bottom:1px solid var(--border);
-  display:flex;align-items:center;gap:10px;padding:0 12px;flex-shrink:0;z-index:10}
+.header{position:absolute;top:0;left:0;right:0;height:var(--header-h);background:var(--card);border-bottom:1px solid var(--border);
+  display:flex;align-items:center;gap:10px;padding:0 12px;z-index:20}
 .header-logo{height:30px;width:auto;max-width:120px;object-fit:contain;object-position:left;
   background:#fff;border-radius:5px;padding:2px 5px;flex-shrink:0}
 .header-title-block{min-width:0}
@@ -43,7 +43,7 @@ html,body{margin:0;padding:0;background:var(--bg);color:var(--text);font-family:
 .icon-btn:active{transform:scale(.9)}
 
 /* PAGES */
-.pages{flex:1;min-height:0;overflow-y:scroll;overflow-x:hidden;-webkit-overflow-scrolling:touch;padding:14px 14px 60px}
+.pages{position:absolute;top:calc(var(--header-h) + 50px);left:0;right:0;bottom:0;overflow-y:scroll;overflow-x:hidden;-webkit-overflow-scrolling:touch;padding:14px 14px 20px}
 .page{display:none}
 .page.active{display:block}
 .section-title{font-size:1.1rem;font-weight:900;color:var(--text);margin-bottom:14px}
@@ -363,9 +363,10 @@ html,body{margin:0;padding:0;background:var(--bg);color:var(--text);font-family:
 
 
 /* NAV — barra horizontal arriba, scrollable */
-.nav{display:flex;align-items:center;background:var(--card);
+.nav{position:absolute;top:var(--header-h);left:0;right:0;height:50px;
+  display:flex;align-items:center;background:var(--card);
   border-bottom:1px solid var(--border);overflow-x:auto;overflow-y:hidden;
-  scrollbar-width:none;padding:0 6px;gap:2px;flex-shrink:0;height:50px}
+  scrollbar-width:none;padding:0 6px;gap:2px;z-index:20}
 .nav::-webkit-scrollbar{display:none}
 .nav-item{display:flex;flex-direction:row;align-items:center;gap:5px;
   cursor:pointer;padding:8px 12px;border-radius:10px;white-space:nowrap;
@@ -386,18 +387,12 @@ html,body{margin:0;padding:0;background:var(--bg);color:var(--text);font-family:
 
 /* PC — sidebar izquierdo cuando hay espacio */
 @media (min-width:900px){
-  .app{
-    display:grid;
-    grid-template-columns:200px 1fr;
-    grid-template-rows:60px 1fr;
-    grid-template-areas:"header header" "sidebar main";
-    max-width:100%;
-  }
-  .header{grid-area:header;max-width:100%;padding:0 24px}
+  .header{padding:0 24px}
   .nav{
-    grid-area:sidebar;
+    top:var(--header-h);left:0;bottom:0;right:auto;
+    width:200px;height:auto;
     flex-direction:column;align-items:stretch;justify-content:flex-start;
-    height:100%;overflow-y:auto;overflow-x:hidden;
+    overflow-y:auto;overflow-x:hidden;
     border-bottom:none;border-right:1px solid var(--border);
     padding:12px 8px;gap:3px;
   }
@@ -405,7 +400,7 @@ html,body{margin:0;padding:0;background:var(--bg);color:var(--text);font-family:
   .nav-item .nav-icon{font-size:1.1rem}
   .nav-item .nav-label{font-size:.78rem}
   .nav-item.cam-btn{padding:10px 12px}
-  .pages{grid-area:main;padding:20px 24px 40px;min-height:0;overflow-y:auto}
+  .pages{top:var(--header-h);left:200px;padding:20px 24px 40px;overflow-y:scroll}
   .sheet-overlay{align-items:center;justify-content:center}
   .sheet{border-radius:16px;max-width:520px;width:100%;max-height:80vh;padding:24px 28px 28px}
   .toast{bottom:24px}
@@ -2588,14 +2583,7 @@ function importBackup(event) {
 // INIT
 // ═══════════════════════════════════════════════════
 document.addEventListener('DOMContentLoaded', ()=>{
-  // Fix altura real en Android Chrome (la barra de direcciones reduce el viewport)
-  function fixHeight() {
-    const vh = window.innerHeight;
-    document.querySelector('.app').style.height = vh + 'px';
-  }
-  fixHeight();
-  window.addEventListener('resize', fixHeight);
-  window.addEventListener('orientationchange', () => setTimeout(fixHeight, 200));
+
   // Reset inicial (solo la primera vez que se abre esta versión)
   try {
     const resetDone = localStorage.getItem('ugt_reset_v3');
