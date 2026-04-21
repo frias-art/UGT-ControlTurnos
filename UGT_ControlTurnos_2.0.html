@@ -470,6 +470,33 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Outfit
   color:var(--muted2);cursor:pointer;-webkit-user-select:none}
 .section-tab.active{border-color:var(--accent);color:var(--accent);background:rgba(34,211,238,.08)}
 
+
+/* ── SALIDAS SINDICALES ── */
+.sindical-card{background:var(--card);border:1px solid var(--border);border-radius:14px;
+  padding:14px;margin-bottom:12px}
+.sindical-delegate{display:flex;align-items:center;gap:12px;padding:14px 0;
+  border-bottom:1px solid var(--border)}
+.sindical-delegate:last-child{border-bottom:none}
+.sindical-avatar{width:44px;height:44px;border-radius:12px;background:rgba(220,20,60,.15);
+  color:#dc143c;font-size:.85rem;font-weight:900;display:flex;align-items:center;
+  justify-content:center;flex-shrink:0}
+.sindical-info{flex:1;min-width:0}
+.sindical-name{font-size:.82rem;font-weight:700}
+.sindical-sub{font-size:.65rem;color:var(--muted2);margin-top:2px}
+.sindical-hours{text-align:right;flex-shrink:0}
+.sindical-h-val{font-size:1.3rem;font-weight:900;color:#dc143c;line-height:1}
+.sindical-h-lbl{font-size:.58rem;color:var(--muted);margin-top:2px}
+.month-chip{padding:7px 14px;border-radius:20px;font-size:.72rem;font-weight:700;
+  background:var(--card);border:1px solid var(--border);color:var(--muted2);
+  cursor:pointer;white-space:nowrap;flex-shrink:0;-webkit-user-select:none}
+.month-chip.on{background:#dc143c;border-color:#dc143c;color:#fff}
+.hours-log-row{display:flex;align-items:center;gap:8px;padding:8px 0;
+  border-bottom:1px solid var(--border);font-size:.75rem}
+.hours-log-row:last-child{border-bottom:none}
+.hours-log-date{color:var(--muted2);flex-shrink:0;width:80px}
+.hours-log-desc{flex:1;color:var(--text)}
+.hours-log-h{font-weight:800;color:#dc143c;flex-shrink:0;width:40px;text-align:right}
+
 </style>
 </head>
 <body>
@@ -704,6 +731,39 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Outfit
       <div class="card" style="padding:0 14px"><div id="vac-list"></div></div>
     </div>
 
+    <!-- ═══ SALIDAS SINDICALES UGT ═══ -->
+    <div class="page" id="page-sind">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+        <div style="display:flex;align-items:center;gap:10px">
+          <div style="font-size:1.6rem">🔴</div>
+          <div>
+            <div class="section-title" style="margin-bottom:0">Salidas Sindicales UGT</div>
+            <div style="font-size:.65rem;color:var(--muted2)">Delegados de UGT FICA · Cervezas San Miguel</div>
+          </div>
+        </div>
+        <button class="big-btn outline" style="padding:8px 12px;font-size:.72rem;flex-shrink:0"
+          id="btn-manage-delegates">👥 Delegados</button>
+      </div>
+
+      <!-- Selector mes/año -->
+      <div style="display:flex;gap:8px;margin-bottom:12px;align-items:center">
+        <select class="form-input" id="sind-year" style="flex:1;padding:8px 12px"
+          onchange="renderSind()"></select>
+        <select class="form-input" id="sind-month" style="flex:1;padding:8px 12px"
+          onchange="renderSind()"></select>
+      </div>
+
+      <!-- KPI total mes -->
+      <div class="kpi-row three" id="sind-kpis"></div>
+
+      <!-- Tarjetas delegados -->
+      <div id="sind-delegates"></div>
+
+      <!-- Botón añadir horas -->
+      <button class="big-btn full" style="background:#dc143c;color:#fff;margin-top:4px"
+        id="btn-add-sind">＋ Registrar horas sindicales</button>
+    </div>
+
   </div><!-- /pages -->
 
   <!-- NAV -->
@@ -721,11 +781,14 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Outfit
     <div class="nav-item" onclick="goPage('rank',this)">
       <div class="nav-icon">🏆</div><div class="nav-label">Ranking</div>
     </div>
+    <div class="nav-item" onclick="goPage('vac',this)">
+      <div class="nav-icon">📋</div><div class="nav-label">Ausencias</div>
+    </div>
     <div class="nav-item" onclick="goPage('hist',this)">
       <div class="nav-icon">📅</div><div class="nav-label">Historial</div>
     </div>
-    <div class="nav-item" onclick="goPage('vac',this)">
-      <div class="nav-icon">📋</div><div class="nav-label">Ausencias</div>
+    <div class="nav-item" onclick="goPage('sind',this)">
+      <div class="nav-icon">🔴</div><div class="nav-label">S.Sindicales</div>
     </div>
   </nav>
 
@@ -872,6 +935,86 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Outfit
     </div>
   </div>
 
+  <!-- SHEET: REGISTRAR HORAS SINDICALES -->
+  <div class="sheet-overlay" id="add-sind-sheet">
+    <div class="sheet">
+      <div class="sheet-handle"></div>
+      <div class="sheet-title">🔴 Registrar horas sindicales</div>
+      <div class="form-field" style="margin-top:8px">
+        <label class="form-lbl">Delegado</label>
+        <select class="form-input" id="sind-delegate">
+          <option value="JURADO BUENO||DAVID">JURADO BUENO, David</option>
+          <option value="BLANCA BLANCO||SERGIO">BLANCA BLANCO, Sergio</option>
+          <option value="ENRIQUE FRÍAS||MANUEL">ENRIQUE FRÍAS, Manuel</option>
+        </select>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+        <div class="form-field">
+          <label class="form-lbl">Mes</label>
+          <select class="form-input" id="sind-mes">
+            <option value="1">Enero</option><option value="2">Febrero</option>
+            <option value="3">Marzo</option><option value="4">Abril</option>
+            <option value="5">Mayo</option><option value="6">Junio</option>
+            <option value="7">Julio</option><option value="8">Agosto</option>
+            <option value="9">Septiembre</option><option value="10">Octubre</option>
+            <option value="11">Noviembre</option><option value="12">Diciembre</option>
+          </select>
+        </div>
+        <div class="form-field">
+          <label class="form-lbl">Año</label>
+          <input type="number" class="form-input" id="sind-anyo" value="2026" min="2024" max="2030">
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+        <div class="form-field">
+          <label class="form-lbl">Fecha salida</label>
+          <input type="text" class="form-input" id="sind-fecha" placeholder="dd/mm/aaaa">
+        </div>
+        <div class="form-field">
+          <label class="form-lbl">Horas</label>
+          <input type="number" class="form-input" id="sind-horas" min="0.5" max="24" step="0.5" placeholder="Ej: 4">
+        </div>
+      </div>
+      <div class="form-field">
+        <label class="form-lbl">Motivo / Descripción</label>
+        <input type="text" class="form-input" id="sind-motivo" placeholder="Reunión comité, asamblea...">
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:4px">
+        <button class="big-btn outline" onclick="closeSheet('add-sind-sheet')">Cancelar</button>
+        <button class="big-btn" style="background:#dc143c;color:#fff" onclick="addSindRecord()">✓ Guardar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- SHEET: GESTIONAR DELEGADOS -->
+  <div class="sheet-overlay" id="manage-delegates-sheet">
+    <div class="sheet">
+      <div class="sheet-handle"></div>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+        <div class="sheet-title">👥 Delegados sindicales</div>
+      </div>
+      <div id="delegates-list" style="margin-bottom:14px"></div>
+      <hr style="border-color:var(--border);margin-bottom:14px">
+      <div style="font-size:.72rem;color:var(--muted2);margin-bottom:10px;font-weight:700">Añadir nuevo delegado</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+        <div class="form-field">
+          <label class="form-lbl">Apellidos</label>
+          <input type="text" class="form-input" id="new-delegate-ape" placeholder="APELLIDOS" style="text-transform:uppercase">
+        </div>
+        <div class="form-field">
+          <label class="form-lbl">Nombre</label>
+          <input type="text" class="form-input" id="new-delegate-nom" placeholder="Nombre">
+        </div>
+      </div>
+      <button class="big-btn full" style="background:#dc143c;color:#fff" onclick="addDelegate()">
+        ＋ Añadir delegado
+      </button>
+      <button class="big-btn outline full" style="margin-top:8px" onclick="closeSheet('manage-delegates-sheet')">
+        Cerrar
+      </button>
+    </div>
+  </div>
+
 </div><!-- /app -->
 
 <div id="toast" class="toast"><span id="toast-icon"></span> <span id="toast-msg"></span></div>
@@ -1002,12 +1145,29 @@ function renderHome() {
   const totN = acum.reduce((s,w)=>s+w.N,0);
   const tot = totM+totT+totN||1;
 
-  document.getElementById('dash-sub').textContent =
-    `Semanas 1–${sems.length?Math.max(...sems):0} · ${acum.length} trabajadores · ${tot} turnos`;
+  const maxSemDash = sems.length > 0 ? Math.max(...sems) : 0;
+  const subEl = document.getElementById('dash-sub');
+  if (subEl) subEl.textContent = acum.length > 0
+    ? `Semanas 1–${maxSemDash} · ${acum.length} trabajadores · ${tot-1+1} turnos`
+    : 'Sin datos — escanea tu primer cuadrante 📷';
 
-  document.getElementById('kpi-top').innerHTML =
-    `<div class="kpi A"><div class="kpi-lbl">Total turnos</div><div class="kpi-val">${tot}</div>
-     <div class="kpi-sub">${sems.length} semanas · ${acum.length} trabajadores</div></div>`;
+  const kpiTopEl = document.getElementById('kpi-top');
+  if (kpiTopEl) {
+    if (acum.length === 0) {
+      kpiTopEl.innerHTML = `<div class="kpi A" style="text-align:center;padding:20px">
+        <div style="font-size:2rem;margin-bottom:8px">📷</div>
+        <div class="kpi-lbl">Base de datos vacía</div>
+        <div style="font-size:.75rem;color:var(--muted2);margin-top:6px">
+          Ve a 📷 Cámara → escanea tu primer cuadrante con IA<br>
+          o pulsa ＋ para añadir turnos manualmente
+        </div>
+      </div>`;
+    } else {
+      kpiTopEl.innerHTML = `<div class="kpi A"><div class="kpi-lbl">Total turnos</div>
+        <div class="kpi-val">${totM+totT+totN}</div>
+        <div class="kpi-sub">${sems.length} semanas · ${acum.length} trabajadores</div></div>`;
+    }
+  }
 
   document.getElementById('kpi-mid').innerHTML = `
     <div class="kpi M"><div class="kpi-lbl">🌅 Mañana</div><div class="kpi-val">${totM}</div><div class="kpi-sub">${((totM/tot)*100).toFixed(1)}%</div></div>
@@ -2095,18 +2255,284 @@ function addVacRecord() {
 
 
 
+
+// ═══════════════════════════════════════════════════
+// SALIDAS SINDICALES UGT
+// ═══════════════════════════════════════════════════
+// Delegados: cargados desde localStorage, con 3 por defecto
+function loadDelegates() {
+  try {
+    const s = localStorage.getItem('ugt_delegates');
+    if (s) return JSON.parse(s);
+  } catch(e) {}
+  return [
+    { key: 'JURADO BUENO||DAVID',   ape: 'JURADO BUENO',   nom: 'David',  ini: 'JB' },
+    { key: 'BLANCA BLANCO||SERGIO', ape: 'BLANCA BLANCO',  nom: 'Sergio', ini: 'BB' },
+    { key: 'ENRIQUE FRÍAS||MANUEL', ape: 'ENRIQUE FRÍAS',  nom: 'Manuel', ini: 'EF' },
+  ];
+}
+function saveDelegates() {
+  try { localStorage.setItem('ugt_delegates', JSON.stringify(DELEGATES)); } catch(e) {}
+}
+let DELEGATES = loadDelegates();
+const MESES = ['','Enero','Febrero','Marzo','Abril','Mayo','Junio',
+               'Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+
+function loadSindRecords() {
+  try { const s = localStorage.getItem('ugt_sind'); if (s) return JSON.parse(s); } catch(e) {}
+  return [];
+}
+function saveSindRecords() {
+  try { localStorage.setItem('ugt_sind', JSON.stringify(sindRecords)); } catch(e) {}
+}
+
+let sindRecords = loadSindRecords();
+
+function initSindSelectors() {
+  const now = new Date();
+  const yearSel = document.getElementById('sind-year');
+  const monthSel = document.getElementById('sind-month');
+  if (!yearSel || !monthSel) return;
+
+  // Años: 2024 hasta año actual + 1
+  const currentYear = now.getFullYear();
+  yearSel.innerHTML = '';
+  for (let y = 2024; y <= currentYear + 1; y++) {
+    yearSel.innerHTML += `<option value="${y}" ${y===currentYear?'selected':''}>${y}</option>`;
+  }
+  // Meses
+  monthSel.innerHTML = MESES.slice(1).map((m,i) =>
+    `<option value="${i+1}" ${(i+1)===now.getMonth()+1?'selected':''}>${m}</option>`
+  ).join('');
+}
+
+function renderSind() {
+  const year  = parseInt(document.getElementById('sind-year')?.value  || new Date().getFullYear());
+  const month = parseInt(document.getElementById('sind-month')?.value || new Date().getMonth()+1);
+
+  // KPIs
+  const monthRecs = sindRecords.filter(r => r.year===year && r.month===month);
+  const totalH = monthRecs.reduce((s,r) => s + (parseFloat(r.horas)||0), 0);
+  const kpisEl = document.getElementById('sind-kpis');
+  if (kpisEl) kpisEl.innerHTML = `
+    <div class="kpi" style="border-left:3px solid #dc143c">
+      <div class="kpi-lbl">⏱ Horas mes</div>
+      <div class="kpi-val" style="color:#dc143c">${totalH}</div>
+      <div class="kpi-sub">${MESES[month]} ${year}</div>
+    </div>
+    <div class="kpi" style="border-left:3px solid var(--accent)">
+      <div class="kpi-lbl">📋 Salidas</div>
+      <div class="kpi-val" style="color:var(--accent)">${monthRecs.length}</div>
+      <div class="kpi-sub">este mes</div>
+    </div>
+    <div class="kpi" style="border-left:3px solid var(--green)">
+      <div class="kpi-lbl">🗓 Total año</div>
+      <div class="kpi-val" style="color:var(--green)">
+        ${sindRecords.filter(r=>r.year===year).reduce((s,r)=>s+(parseFloat(r.horas)||0),0)}
+      </div>
+      <div class="kpi-sub">horas ${year}</div>
+    </div>`;
+
+  // Tarjetas por delegado
+  const delegatesEl = document.getElementById('sind-delegates');
+  if (!delegatesEl) return;
+
+  delegatesEl.innerHTML = DELEGATES.map(d => {
+    const dRecs = monthRecs.filter(r => r.delegate === d.key)
+      .sort((a,b) => (a.fecha||'').localeCompare(b.fecha||''));
+    const dHours = dRecs.reduce((s,r) => s+(parseFloat(r.horas)||0), 0);
+    const yearHours = sindRecords.filter(r=>r.year===year&&r.delegate===d.key)
+      .reduce((s,r)=>s+(parseFloat(r.horas)||0),0);
+
+    const logRows = dRecs.length ? dRecs.map((r,i) => `
+      <div class="hours-log-row">
+        <div class="hours-log-date">${r.fecha||'—'}</div>
+        <div class="hours-log-desc">${r.motivo||'Salida sindical'}</div>
+        <div class="hours-log-h">${r.horas}h</div>
+        <button class="del-btn" style="margin-left:4px" onclick="deleteSindRecord(${sindRecords.indexOf(r)})">🗑</button>
+      </div>`).join('') :
+      `<div style="padding:12px 0;font-size:.72rem;color:var(--muted);text-align:center">Sin salidas este mes</div>`;
+
+    return `<div class="sindical-card">
+      <div class="sindical-delegate">
+        <div class="sindical-avatar">${d.ini}</div>
+        <div class="sindical-info">
+          <div class="sindical-name">${d.ape}, ${d.nom}</div>
+          <div class="sindical-sub">Delegado UGT FICA · ${yearHours}h acumuladas en ${year}</div>
+        </div>
+        <div class="sindical-hours">
+          <div class="sindical-h-val">${dHours}h</div>
+          <div class="sindical-h-lbl">${MESES[month]}</div>
+        </div>
+      </div>
+      <div style="padding:4px 0 0">${logRows}</div>
+      <button class="big-btn outline full" style="margin-top:10px;font-size:.72rem;padding:9px"
+        onclick="openAddSindSheet('${d.key}')">＋ Añadir horas a ${d.nom}</button>
+    </div>`;
+  }).join('');
+}
+
+function openAddSindSheet(delegateKey) {
+  const now = new Date();
+  // Preseleccionar el delegado si se pasa
+  updateDelegateSelect();
+  const sel = document.getElementById('sind-delegate');
+  if (sel && delegateKey) sel.value = delegateKey;
+  // Preseleccionar mes/año del selector activo
+  const year  = document.getElementById('sind-year')?.value  || now.getFullYear();
+  const month = document.getElementById('sind-month')?.value || (now.getMonth()+1);
+  const anyoEl = document.getElementById('sind-anyo');
+  const mesEl  = document.getElementById('sind-mes');
+  if (anyoEl) anyoEl.value = year;
+  if (mesEl)  mesEl.value  = month;
+  // Fecha de hoy
+  const day = String(now.getDate()).padStart(2,'0');
+  const mon = String(now.getMonth()+1).padStart(2,'0');
+  const fechaEl = document.getElementById('sind-fecha');
+  if (fechaEl) fechaEl.value = `${day}/${mon}/${now.getFullYear()}`;
+  openSheet('add-sind-sheet');
+}
+
+function addSindRecord() {
+  const delegate = document.getElementById('sind-delegate')?.value;
+  const month    = parseInt(document.getElementById('sind-mes')?.value);
+  const year     = parseInt(document.getElementById('sind-anyo')?.value);
+  const fecha    = document.getElementById('sind-fecha')?.value.trim();
+  const horas    = parseFloat(document.getElementById('sind-horas')?.value);
+  const motivo   = document.getElementById('sind-motivo')?.value.trim();
+
+  if (!delegate) { toast('⚠','Selecciona un delegado'); return; }
+  if (!horas || horas <= 0) { toast('⚠','Indica las horas'); return; }
+
+  sindRecords.push({ delegate, month, year, fecha, horas, motivo });
+  saveSindRecords();
+  closeSheet('add-sind-sheet');
+
+  // Sincronizar selectors con el mes/año recién añadido
+  const yearSel  = document.getElementById('sind-year');
+  const monthSel = document.getElementById('sind-month');
+  if (yearSel)  yearSel.value  = year;
+  if (monthSel) monthSel.value = month;
+
+  renderSind();
+  const d = DELEGATES.find(x=>x.key===delegate);
+  toast('✅', `${horas}h registradas — ${d?.nom||''}`);
+}
+
+function deleteSindRecord(idx) {
+  if (!confirm('¿Eliminar este registro de horas?')) return;
+  sindRecords.splice(idx, 1);
+  saveSindRecords();
+  renderSind();
+  toast('🗑','Registro eliminado');
+}
+
+
+
+
+function makeIni(ape, nom) {
+  const parts = ape.trim().split(' ');
+  return (parts[0][0] + (nom[0]||'')).toUpperCase();
+}
+
+function addDelegate() {
+  const ape = (document.getElementById('new-delegate-ape')?.value||'').trim().toUpperCase();
+  const nom = (document.getElementById('new-delegate-nom')?.value||'').trim();
+  if (!ape || !nom) { toast('⚠','Rellena apellidos y nombre'); return; }
+  const key = ape + '||' + nom.toUpperCase();
+  if (DELEGATES.find(d => d.key === key)) { toast('⚠','Ya existe este delegado'); return; }
+  DELEGATES.push({ key, ape, nom, ini: makeIni(ape, nom) });
+  saveDelegates();
+  // Actualizar select del sheet añadir horas
+  updateDelegateSelect();
+  renderDelegatesList();
+  renderSind();
+  document.getElementById('new-delegate-ape').value = '';
+  document.getElementById('new-delegate-nom').value = '';
+  toast('✅', `${ape}, ${nom} añadido`);
+}
+
+function removeDelegate(key) {
+  const d = DELEGATES.find(x => x.key === key);
+  if (!d) return;
+  if (!confirm(`¿Eliminar a ${d.ape}, ${d.nom} de la lista de delegados?\n\nSus registros de horas se conservarán.`)) return;
+  DELEGATES = DELEGATES.filter(x => x.key !== key);
+  saveDelegates();
+  updateDelegateSelect();
+  renderDelegatesList();
+  renderSind();
+  toast('🗑', `${d.nom} eliminado de delegados`);
+}
+
+function updateDelegateSelect() {
+  const sel = document.getElementById('sind-delegate');
+  if (!sel) return;
+  sel.innerHTML = DELEGATES.map(d =>
+    `<option value="${d.key}">${d.ape}, ${d.nom}</option>`
+  ).join('');
+}
+
+function renderDelegatesList() {
+  const el = document.getElementById('delegates-list');
+  if (!el) return;
+  if (!DELEGATES.length) {
+    el.innerHTML = '<div style="text-align:center;color:var(--muted2);padding:12px">Sin delegados</div>';
+    return;
+  }
+  el.innerHTML = DELEGATES.map(d => `
+    <div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--border)">
+      <div class="sindical-avatar" style="width:36px;height:36px;font-size:.75rem">${d.ini}</div>
+      <div style="flex:1;min-width:0">
+        <div style="font-size:.8rem;font-weight:700">${d.ape}</div>
+        <div style="font-size:.65rem;color:var(--muted2)">${d.nom}</div>
+      </div>
+      <button class="del-btn" onclick="removeDelegate('${d.key}')" title="Eliminar delegado">🗑</button>
+    </div>`).join('');
+}
+
+function openManageDelegates() {
+  renderDelegatesList();
+  openSheet('manage-delegates-sheet');
+}
+
 // ═══════════════════════════════════════════════════
 // INIT
 // ═══════════════════════════════════════════════════
 document.addEventListener('DOMContentLoaded', ()=>{
-  // Cargar año activo
+  // Reset inicial (solo la primera vez que se abre esta versión)
+  try {
+    const resetDone = localStorage.getItem('ugt_reset_v3');
+    if (!resetDone) {
+      localStorage.removeItem('ugt_records');
+      localStorage.removeItem('ugt_year_2026');
+      localStorage.removeItem('ugt_years_idx');
+      localStorage.removeItem('ugt_active_year');
+      localStorage.removeItem('ugt_vac');
+      localStorage.removeItem('ugt_sind');
+      localStorage.removeItem('ugt_delegates');
+      localStorage.setItem('ugt_reset_v3', '1');
+      records = [];
+      vacRecords = [];
+      activeYear = '2026';
+    }
+  } catch(e) {}
+
+  // Cargar año activo y datos
   try{
-    const savedYear=localStorage.getItem('ugt_active_year');
-    const idx=getYearsIdx();
-    if(savedYear&&idx.includes(savedYear)) activeYear=savedYear;
-    const d=getYearData(activeYear);
-    if(d?.records&&d.records.length>0) records=d.records;
-  }catch(e){}
+    const savedYear = localStorage.getItem('ugt_active_year');
+    const idx = getYearsIdx();
+    if (savedYear && idx.includes(savedYear)) activeYear = savedYear;
+
+    // Prioridad: ugt_records (más actualizado) > ugt_year_XXXX > vacío
+    const savedRecs = localStorage.getItem('ugt_records');
+    if (savedRecs) {
+      const parsed = JSON.parse(savedRecs);
+      if (Array.isArray(parsed)) records = parsed;
+    } else {
+      const d = getYearData(activeYear);
+      if (d?.records && Array.isArray(d.records)) records = d.records;
+    }
+  } catch(e) { console.error('Error cargando datos:', e); }
 
   // Cargar API Key
   try{
@@ -2132,6 +2558,10 @@ document.addEventListener('DOMContentLoaded', ()=>{
   document.getElementById('btn-scan').addEventListener('click', scanCuadrante);
   // btn-todos y btn-ninguno se registran en renderScanResults
   // btn-importar: onclick directo para evitar listeners duplicados
+  const btnManageDelegates = document.getElementById('btn-manage-delegates');
+  if (btnManageDelegates) btnManageDelegates.onclick = openManageDelegates;
+  const btnAddSind = document.getElementById('btn-add-sind');
+  if (btnAddSind) btnAddSind.onclick = () => openAddSindSheet('');
   const btnAddVac = document.getElementById('btn-add-vac');
   if (btnAddVac) btnAddVac.onclick = openAddVacSheet;
   const btnImp = document.getElementById('btn-importar');
