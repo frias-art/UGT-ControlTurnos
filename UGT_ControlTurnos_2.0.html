@@ -438,6 +438,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Outfit
   .nav-item.cam-btn .nav-icon { color: #000; opacity: 1; }
 
   .pages {
+    padding-top: 12px;
     flex: 1;
     height: calc(100vh - 60px);
     padding: 24px 32px 24px;
@@ -454,6 +455,63 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Outfit
   .hist-card:hover, .worker-item:hover, .rank-row:hover, .sem-row:hover {
     background: rgba(34,211,238,.04); border-radius: 8px; transition: background .15s;
   }
+
+/* ───────── MENÚ SUPERIOR OPTIMIZADO PARA MÓVIL ───────── */
+
+.top-nav {
+  position: sticky;
+  top: var(--header-h);
+  z-index: 90;
+  background: var(--card);
+  border-bottom: 1px solid var(--border);
+  height: 56px;
+}
+
+.top-nav-scroll {
+  display: flex;
+  align-items: center;
+  height: 100%;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.top-nav-scroll::-webkit-scrollbar {
+  display: none;
+}
+
+.top-item {
+  min-width: 64px;
+  height: 100%;
+  padding: 6px 10px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  gap: 2px;
+  cursor: pointer;
+  user-select: none;
+  color: var(--muted2);
+  font-weight: 700;
+}
+
+.top-item span {
+  font-size: 1.2rem;
+}
+
+.top-item small {
+  font-size: .55rem;
+}
+
+.top-item.active {
+  color: var(--accent);
+  background: rgba(34,211,238,.08);
+}
+
+.top-item.cam {
+  color: #000;
+  background: var(--accent);
+  border-radius: 10px;
+  margin: 0 4px;
 }
 
 </style>
@@ -726,30 +784,47 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Outfit
   </div><!-- /pages -->
 
   <!-- NAV -->
-  <nav class="nav">
-    <div class="nav-item active" onclick="goPage('home',this)">
-      <div class="nav-icon">📊</div><div class="nav-label">Inicio</div>
+
+<nav class="top-nav">
+  <div class="top-nav-scroll">
+
+    <div class="top-item active" onclick="goPage('home',this)">
+      <span>📊</span>
+      <small>Inicio</small>
     </div>
-    <div class="nav-item" onclick="goPage('workers',this)">
-      <div class="nav-icon">👥</div><div class="nav-label">Equipo</div>
+
+    <div class="top-item" onclick="goPage('workers',this)">
+      <span>👥</span>
+      <small>Equipo</small>
     </div>
-    <div class="nav-item cam-btn" onclick="goPage('cam',this)">
-      <div class="nav-icon">📷</div>
-      <div class="nav-label">Cámara</div>
+
+    <div class="top-item cam" onclick="goPage('cam',this)">
+      <span>📷</span>
+      <small>Cámara</small>
     </div>
-    <div class="nav-item" onclick="goPage('rank',this)">
-      <div class="nav-icon">🏆</div><div class="nav-label">Ranking</div>
+
+    <div class="top-item" onclick="goPage('rank',this)">
+      <span>🏆</span>
+      <small>Ranking</small>
     </div>
-    <div class="nav-item" onclick="goPage('vac',this)">
-      <div class="nav-icon">📋</div><div class="nav-label">Ausencias</div>
+
+    <div class="top-item" onclick="goPage('vac',this)">
+      <span>📋</span>
+      <small>Ausencias</small>
     </div>
-    <div class="nav-item" onclick="goPage('hist',this)">
-      <div class="nav-icon">📅</div><div class="nav-label">Historial</div>
+
+    <div class="top-item" onclick="goPage('hist',this)">
+      <span>📅</span>
+      <small>Historial</small>
     </div>
-    <div class="nav-item" onclick="goPage('sind',this)">
-      <div class="nav-icon">🔴</div><div class="nav-label">S.Sindicales</div>
+
+    <div class="top-item" onclick="goPage('sind',this)">
+      <span>🔴</span>
+      <small>Sindical</small>
     </div>
-  </nav>
+
+  </div>
+</nav>
 
   <!-- TOAST -->
   <div class="toast" id="toast"><span id="toast-icon"></span> <span id="toast-msg"></span></div>
@@ -1061,7 +1136,7 @@ function dc(id) { if (charts[id]) { charts[id].destroy(); delete charts[id]; } }
 
 function goPage(name, el) {
   document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
-  document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
+  document.querySelectorAll('.top-item').forEach(n=>n.classList.remove('active'));
   const pg = document.getElementById('page-'+name);
   if (!pg) return;
   pg.classList.add('active');
