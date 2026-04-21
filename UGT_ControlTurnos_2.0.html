@@ -119,13 +119,16 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Outfit
 
 /* NAV */
 .nav{height:var(--nav-h);background:var(--card);border-top:1px solid var(--border);
-  display:flex;align-items:center;justify-content:space-around;flex-shrink:0;z-index:10}
-.nav-item{display:flex;flex-direction:column;align-items:center;gap:3px;cursor:pointer;
-  padding:8px 14px;border-radius:12px;-webkit-user-select:none;transition:all .15s;flex:1}
-.nav-item.active .nav-icon{opacity:1}.nav-item .nav-icon{font-size:1.3rem;opacity:.45;transition:opacity .2s}
-.nav-item.active .nav-label{color:var(--accent)}.nav-label{font-size:.58rem;color:var(--muted);font-weight:600}
-.nav-item.cam-btn{background:var(--accent);border-radius:16px;padding:10px 16px;
-  flex:0 0 auto;margin:0 6px}
+  display:flex;align-items:center;justify-content:flex-start;flex-shrink:0;z-index:10;
+  overflow-x:auto;overflow-y:hidden;scrollbar-width:none;padding:0 4px;gap:2px}
+.nav::-webkit-scrollbar{display:none}
+.nav-item{display:flex;flex-direction:column;align-items:center;gap:2px;cursor:pointer;
+  padding:6px 10px;border-radius:10px;-webkit-user-select:none;transition:all .15s;
+  flex-shrink:0;min-width:52px}
+.nav-item.active .nav-icon{opacity:1}.nav-item .nav-icon{font-size:1.2rem;opacity:.45;transition:opacity .2s}
+.nav-item.active .nav-label{color:var(--accent)}.nav-label{font-size:.55rem;color:var(--muted);font-weight:600;white-space:nowrap}
+.nav-item.cam-btn{background:var(--accent);border-radius:14px;padding:8px 14px;
+  flex-shrink:0;margin:0 4px}
 .nav-item.cam-btn .nav-icon{opacity:1;font-size:1.4rem}
 
 /* SHEETS */
