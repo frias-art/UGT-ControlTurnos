@@ -1549,23 +1549,48 @@ function deleteApiKey() {
 // ESCÁNER IA
 // ═══════════════════════════════════════════════════
 function normalizeStr(s) {
-  return s.toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^A-Z0-9 ]/g,'').trim();
+  if (!s) return '';
+  return s.toUpperCase()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g,'')  // quitar tildes
+    .replace(/Ñ/g,'N')                                   // ñ → n
+    .replace(/[^A-Z0-9 ]/g,'')                          // solo letras y números
+    .replace(/\s+/g,' ').trim();
+}
+
+// Calcula similitud entre dos strings normalizados (0-1)
+function strSimilarity(a, b) {
+  if (!a || !b) return 0;
+  const na = normalizeStr(a), nb = normalizeStr(b);
+  if (na === nb) return 1;
+  if (na.includes(nb) || nb.includes(na)) return 0.9;
+  // Comparar palabras individuales
+  const wa = na.split(' '), wb = nb.split(' ');
+  let matches = 0;
+  for (const pa of wa) {
+    if (pa.length < 2) continue;
+    for (const pb of wb) {
+      if (pb.length < 2) continue;
+      if (pa === pb) { matches += 1; break; }
+      if (pa.startsWith(pb) || pb.startsWith(pa)) { matches += 0.7; break; }
+    }
+  }
+  return Math.min(1, matches / Math.max(wa.length, wb.length));
 }
 
 function fuzzyMatch(apellidos, nombre) {
   const known = buildAcum();
-  const full = normalizeStr(apellidos+' '+nombre);
-  let best=null, bestScore=0;
+  if (!apellidos && !nombre) return {match:null, type:'new'};
+  let best = null, bestScore = 0;
   for (const w of known) {
-    const wa=normalizeStr(w.ape), wn=normalizeStr(w.nom);
-    const s1=apellidos&&wa.includes(apellidos.toUpperCase().split(' ')[0])?0.9:0;
-    const s2=nombre&&wn.includes(nombre.toUpperCase().split(' ')[0])?0.9:0;
-    const score=(s1+s2)/2;
-    if (score>bestScore){bestScore=score;best=w;}
+    // Score apellidos (peso 70%) + nombre (peso 30%)
+    const sApe  = strSimilarity(apellidos, w.ape);
+    const sNom  = strSimilarity(nombre,    w.nom);
+    const score = sApe * 0.7 + sNom * 0.3;
+    if (score > bestScore) { bestScore = score; best = w; }
   }
-  if (bestScore>0.8) return {match:best,type:'exact'};
-  if (bestScore>0.4) return {match:best,type:'fuzzy'};
-  return {match:null,type:'new'};
+  if (bestScore >= 0.85) return {match:best, type:'exact'};
+  if (bestScore >= 0.50) return {match:best, type:'fuzzy'};
+  return {match:null, type:'new'};
 }
 
 let scanMode = 'simple';
@@ -1586,7 +1611,7 @@ function setProgress(pct, txt) {
 }
 
 async function callClaudeVision(base64, mediaType, extraHint) {
-  const knownList = buildAcum().map(w=>`${w.ape}, ${w.nom}`).join('\n');
+  const knownList = buildAcum().map(w=>`${normalizeStr(w.ape)}, ${normalizeStr(w.nom)}`).join('\n');
   const prompt = `Eres un experto en leer cuadrantes de turnos de trabajo de fábricas españolas.
 
 ${extraHint}
@@ -1599,8 +1624,9 @@ INSTRUCCIONES:
 - Los turnos son: MAÑANA (7-15h / 8-16h), TARDE (15-23h / 16-24h), NOCHE (23-7h)
 - TAMBIÉN extrae la sección VACACIONES/PERMISOS: nombre, fecha DEL, fecha AL, días
 - TAMBIÉN extrae la sección BAJAS: solo los nombres
-- Si un nombre se parece a uno de la lista conocida, usa el de la lista
-- Sé exhaustivo: no te dejes ninguno
+- MUY IMPORTANTE: escribe los nombres en MAYÚSCULAS y SIN TILDES (GARCIA no GARCÍA, GONZALEZ no GONZÁLEZ, SANCHEZ no SÁNCHEZ, JIMENEZ no JIMÉNEZ, etc.)
+- Si un nombre se parece a uno de la lista conocida, usa EXACTAMENTE el nombre de la lista
+- Sé exhaustivo: no te dejes ningún trabajador
 
 Devuelve ÚNICAMENTE JSON válido sin markdown:
 {"semana":<número>,"turnos":[{"apellidos":"APELLIDOS","nombre":"NOMBRE","turno":"MAÑANA|TARDE|NOCHE"},...],
@@ -1728,33 +1754,47 @@ async function scanCuadrante() {
     if (detectedSemana) document.getElementById('cam-sem').value = detectedSemana;
     const semFinal = document.getElementById('cam-sem').value || semana;
 
-    // Procesar vacaciones detectadas
+    // Procesar vacaciones detectadas (sin duplicar misma semana + persona)
     if (allVac && allVac.length > 0) {
+      let vacAdded = 0;
       allVac.forEach(v => {
         const m = fuzzyMatch(v.apellidos, v.nombre);
-        vacRecords.push({
-          tipo: 'VAC',
-          ape: m.match ? m.match.ape : (v.apellidos||'').toUpperCase(),
-          nom: m.match ? m.match.nom : (v.nombre||'').toUpperCase(),
-          semana: parseInt(semFinal)||0,
-          desde: v.desde||'', hasta: v.hasta||'', dias: v.dias||'', nota: ''
-        });
+        const ape = m.match ? m.match.ape : normalizeStr(v.apellidos||'');
+        const nom = m.match ? m.match.nom : normalizeStr(v.nombre||'');
+        const sem = parseInt(semFinal)||0;
+        const exists = vacRecords.some(r =>
+          r.tipo==='VAC' && r.semana===sem &&
+          normalizeStr(r.ape)===normalizeStr(ape) &&
+          normalizeStr(r.nom)===normalizeStr(nom)
+        );
+        if (!exists) {
+          vacRecords.push({ tipo:'VAC', ape, nom, semana:sem,
+            desde:v.desde||'', hasta:v.hasta||'', dias:v.dias||'', nota:'' });
+          vacAdded++;
+        }
       });
-      saveVacRecords();
+      if (vacAdded > 0) saveVacRecords();
     }
-    // Procesar bajas detectadas
+    // Procesar bajas detectadas (sin duplicar misma semana + persona)
     if (allBajas && allBajas.length > 0) {
+      let bajasAdded = 0;
       allBajas.forEach(b => {
         const m = fuzzyMatch(b.apellidos, b.nombre);
-        vacRecords.push({
-          tipo: 'BAJA',
-          ape: m.match ? m.match.ape : (b.apellidos||'').toUpperCase(),
-          nom: m.match ? m.match.nom : (b.nombre||'').toUpperCase(),
-          semana: parseInt(semFinal)||0,
-          desde: '', hasta: '', dias: '', nota: ''
-        });
+        const ape = m.match ? m.match.ape : normalizeStr(b.apellidos||'');
+        const nom = m.match ? m.match.nom : normalizeStr(b.nombre||'');
+        const sem = parseInt(semFinal)||0;
+        const exists = vacRecords.some(r =>
+          r.tipo==='BAJA' && r.semana===sem &&
+          normalizeStr(r.ape)===normalizeStr(ape) &&
+          normalizeStr(r.nom)===normalizeStr(nom)
+        );
+        if (!exists) {
+          vacRecords.push({ tipo:'BAJA', ape, nom, semana:sem,
+            desde:'', hasta:'', dias:'', nota:'' });
+          bajasAdded++;
+        }
       });
-      saveVacRecords();
+      if (bajasAdded > 0) saveVacRecords();
     }
 
     setProgress(0, '');
@@ -1909,8 +1949,12 @@ function importScannedShifts() {
   scannedShifts.forEach((_,i)=>{
     const chk=document.getElementById(`rc-${i}`);
     if(!chk||!chk.classList.contains('on')) return;
-    const ape=(document.getElementById(`ra-${i}`)?.value||scannedShifts[i].apellidos).trim().toUpperCase();
-    const nom=(document.getElementById(`rn-${i}`)?.value||scannedShifts[i].nombre).trim().toUpperCase();
+    // Leer del DOM si el usuario editó, sino usar el valor de scannedShifts
+    const raEl = document.getElementById(`ra-${i}`);
+    const rnEl = document.getElementById(`rn-${i}`);
+    const ape = normalizeStr(raEl?.value?.trim() || scannedShifts[i].apellidos || '');
+    const nom = normalizeStr(rnEl?.value?.trim() || scannedShifts[i].nombre    || '');
+    if (!ape) return; // saltar si no hay apellido
     const turno=scannedShifts[i].turno||'MAÑANA';
     const exists=records.some(r=>r[0]===semana&&normalizeStr(r[1])===normalizeStr(ape)&&normalizeStr(r[2])===normalizeStr(nom));
     if(!exists){records.push([semana,ape,nom,turno]);imported++;}else skipped++;
@@ -2292,13 +2336,18 @@ function addVacRecord() {
   const tipo = document.getElementById('vac-tipo')?.value;
   if (!semana) { toast('⚠', 'Indica la semana'); return; }
 
-  const record = { tipo, ape, nom, semana,
-    desde: document.getElementById('vac-desde')?.value || '',
-    hasta: document.getElementById('vac-hasta')?.value || '',
-    dias:  document.getElementById('vac-dias')?.value  || '',
-    nota:  document.getElementById('vac-nota')?.value  || ''
-  };
-  vacRecords.push(record);
+  const desde = document.getElementById('vac-desde')?.value || '';
+  const hasta = document.getElementById('vac-hasta')?.value || '';
+  const dias  = document.getElementById('vac-dias')?.value  || '';
+  const nota  = document.getElementById('vac-nota')?.value  || '';
+  // Comprobar duplicado: misma semana, mismo tipo y misma persona
+  const exists = vacRecords.some(r =>
+    r.tipo === tipo && r.semana === semana &&
+    normalizeStr(r.ape) === normalizeStr(ape) &&
+    normalizeStr(r.nom) === normalizeStr(nom)
+  );
+  if (exists) { toast('⚠', `Ya existe ${tipo==='VAC'?'vacación':'baja'} para ${ape} en sem ${semana}`); return; }
+  vacRecords.push({ tipo, ape, nom, semana, desde, hasta, dias, nota });
   saveVacRecords();
   closeSheet('add-vac-sheet');
   renderVacPage();
