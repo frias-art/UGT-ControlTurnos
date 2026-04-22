@@ -578,6 +578,22 @@ html,body{height:100%;overflow:hidden;background:#0a0c12;color:#e8eaf2;
           <button class="big-btn danger" style="padding:11px 11px;flex-shrink:0" id="btn-del-key">🗑</button>
         </div>
         <div class="key-status" id="key-status">Sin API Key guardada</div>
+
+        <!-- GitHub Sync -->
+        <div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--border)">
+          <div class="card-label" style="margin-bottom:6px">☁️ Sincronización GitHub</div>
+          <div class="api-key-wrap">
+            <input type="password" class="api-key-input" id="github-token-input"
+              placeholder="ghp_..." autocomplete="off" spellcheck="false">
+            <button class="big-btn primary" style="padding:11px 13px;flex-shrink:0"
+              id="btn-save-github">💾</button>
+            <button class="big-btn danger" style="padding:11px 11px;flex-shrink:0"
+              id="btn-del-github">🗑</button>
+          </div>
+          <div class="key-status" id="github-sync-status">Sin token GitHub</div>
+          <button class="big-btn outline full" style="margin-top:8px;font-size:.75rem"
+            id="btn-sync-github">🔄 Sincronizar ahora con GitHub</button>
+        </div>
         <!-- Modo de escaneo -->
         <div class="scan-mode-tabs">
           <div class="scan-mode-tab active" id="mode-simple" onclick="setScanMode('simple',this)">
@@ -2034,7 +2050,7 @@ function addShift() {
   const turno=document.getElementById('add-turno').value;
   if(!sem){toast('⚠','Indica la semana');return;}
   records.push([sem,ape,nom,turno]);
-  saveRecords();
+  saveRecordsAndSync();
   closeSheet('add-sheet');
   toast('✅',`${ape} – S${sem} – ${turno}`);
   if(document.getElementById('page-home').classList.contains('active')) renderHome();
@@ -2762,6 +2778,175 @@ function importBackup(event) {
 }
 
 
+
+// ═══════════════════════════════════════════════════
+// SINCRONIZACIÓN CON GITHUB
+// ═══════════════════════════════════════════════════
+const GITHUB_REPO  = 'frias-art/ugt-control-turnos';
+const GITHUB_FILE  = 'datos_turnos.json';
+const GITHUB_BRANCH = 'main';
+
+function getGithubToken() {
+  try { return localStorage.getItem('ugt_github_token') || ''; } catch(e) { return ''; }
+}
+function saveGithubToken(t) {
+  try { localStorage.setItem('ugt_github_token', t); } catch(e) {}
+}
+
+// ── Cargar datos desde GitHub ─────────────────────
+async function loadFromGithub() {
+  const token = getGithubToken();
+  if (!token) return null;
+  try {
+    const resp = await fetch(
+      `https://api.github.com/repos/${GITHUB_REPO}/contents/${GITHUB_FILE}?ref=${GITHUB_BRANCH}&t=${Date.now()}`,
+      { headers: { 'Authorization': `token ${token}`, 'Accept': 'application/vnd.github.v3+json' } }
+    );
+    if (resp.status === 404) return null; // fichero no existe aún
+    if (!resp.ok) throw new Error(`GitHub error ${resp.status}`);
+    const data = await resp.json();
+    const content = JSON.parse(atob(data.content.replace(/\n/g,'')));
+    content._sha = data.sha; // guardar sha para poder actualizar
+    return content;
+  } catch(e) {
+    console.warn('loadFromGithub:', e.message);
+    return null;
+  }
+}
+
+// ── Guardar datos en GitHub ───────────────────────
+async function saveToGithub() {
+  const token = getGithubToken();
+  if (!token) return false;
+  try {
+    // Obtener sha actual (necesario para actualizar)
+    let sha = '';
+    const check = await fetch(
+      `https://api.github.com/repos/${GITHUB_REPO}/contents/${GITHUB_FILE}?ref=${GITHUB_BRANCH}`,
+      { headers: { 'Authorization': `token ${token}`, 'Accept': 'application/vnd.github.v3+json' } }
+    );
+    if (check.ok) {
+      const existing = await check.json();
+      sha = existing.sha;
+    }
+
+    const payload = {
+      version: '2.0',
+      savedAt: new Date().toISOString(),
+      activeYear,
+      records,
+      vacRecords,
+      sindRecords,
+      delegates: DELEGATES,
+      yearsIdx: getYearsIdx(),
+      yearData: {}
+    };
+    getYearsIdx().forEach(y => {
+      const d = getYearData(y);
+      if (d) payload.yearData[y] = d;
+    });
+
+    const body = {
+      message: `Actualización turnos ${new Date().toLocaleDateString('es-ES')}`,
+      content: btoa(unescape(encodeURIComponent(JSON.stringify(payload, null, 2)))),
+      branch: GITHUB_BRANCH
+    };
+    if (sha) body.sha = sha;
+
+    const resp = await fetch(
+      `https://api.github.com/repos/${GITHUB_REPO}/contents/${GITHUB_FILE}`,
+      {
+        method: 'PUT',
+        headers: {
+          'Authorization': `token ${token}`,
+          'Accept': 'application/vnd.github.v3+json',
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(body)
+      }
+    );
+    if (!resp.ok) {
+      const err = await resp.json();
+      throw new Error(err.message || `Error ${resp.status}`);
+    }
+    return true;
+  } catch(e) {
+    console.error('saveToGithub:', e.message);
+    return false;
+  }
+}
+
+// ── Sincronizar: cargar al abrir, guardar tras cambios ──
+async function syncWithGithub(showToast=true) {
+  const token = getGithubToken();
+  if (!token) {
+    toast('⚠', 'Primero guarda tu token de GitHub');
+    return;
+  }
+  const status = document.getElementById('github-sync-status');
+  if (status) { status.textContent = '🔄 Sincronizando...'; status.className = 'key-status'; }
+  try {
+    const remote = await loadFromGithub();
+    if (remote) {
+      const remoteDate = remote.savedAt ? new Date(remote.savedAt) : new Date(0);
+      const localDate  = localStorage.getItem('ugt_last_save')
+                         ? new Date(localStorage.getItem('ugt_last_save')) : new Date(0);
+      if (remoteDate > localDate) {
+        records     = Array.isArray(remote.records)     ? remote.records     : records;
+        vacRecords  = Array.isArray(remote.vacRecords)  ? remote.vacRecords  : vacRecords;
+        sindRecords = Array.isArray(remote.sindRecords) ? remote.sindRecords : sindRecords;
+        if (Array.isArray(remote.delegates) && remote.delegates.length) {
+          try {
+            while (DELEGATES.length) DELEGATES.pop();
+            remote.delegates.forEach(d => DELEGATES.push(d));
+            saveDelegates();
+          } catch(e) {}
+        }
+        if (remote.activeYear) activeYear = remote.activeYear;
+        if (remote.yearsIdx)   saveYearsIdx(remote.yearsIdx);
+        if (remote.yearData) {
+          Object.entries(remote.yearData).forEach(([y,d]) => {
+            try { localStorage.setItem('ugt_year_' + y, JSON.stringify(d)); } catch(e) {}
+          });
+        }
+        try {
+          localStorage.setItem('ugt_records',  JSON.stringify(records));
+          localStorage.setItem('ugt_vac',       JSON.stringify(vacRecords));
+          localStorage.setItem('ugt_sind',      JSON.stringify(sindRecords));
+          localStorage.setItem('ugt_last_save', remote.savedAt);
+        } catch(e) {}
+        renderHome();
+        if (showToast) toast('☁️', `GitHub → ${records.length} turnos cargados`);
+      } else {
+        if (showToast) toast('✅', 'Ya tienes los datos más recientes');
+      }
+    } else {
+      // No hay fichero remoto todavía — subir los datos locales
+      const ok = await saveToGithub();
+      if (status) { status.textContent = ok ? '✅ Datos subidos a GitHub' : '❌ Error al subir'; status.className = ok ? 'key-status ok' : 'key-status err'; }
+      if (showToast) toast(ok ? '☁️' : '❌', ok ? 'Datos subidos a GitHub' : 'Error al subir');
+      return;
+    }
+    if (status) { status.textContent = '✅ Sincronizado con GitHub'; status.className = 'key-status ok'; }
+  } catch(e) {
+    console.error('syncWithGithub:', e);
+    if (status) { status.textContent = '❌ Error: ' + e.message.slice(0,40); status.className = 'key-status err'; }
+    if (showToast) toast('❌', 'Error GitHub: ' + e.message.slice(0,30));
+  }
+}
+
+// Guardar en GitHub después de cada importación
+async function saveRecordsAndSync() {
+  saveRecords();
+  const token = getGithubToken();
+  if (!token) return;
+  try { localStorage.setItem('ugt_last_save', new Date().toISOString()); } catch(e) {}
+  const ok = await saveToGithub();
+  if (ok) toast('☁️', 'Guardado en GitHub ✓');
+  else    toast('⚠️', 'Guardado local OK · GitHub falló');
+}
+
+
 // ═══════════════════════════════════════════════════
 // INIT
 // ═══════════════════════════════════════════════════
@@ -2804,13 +2989,49 @@ document.addEventListener('DOMContentLoaded', ()=>{
   const badge=document.getElementById('sem-badge');
   if(badge) badge.textContent=maxSem>0?`SEM ${maxSem}`:activeYear;
 
-  // Conectar botones estáticos
-  document.getElementById('btn-add').addEventListener('click', openAddSheet);
+  // Conectar botones estáticos (con null checks para evitar errores)
+  const btnAdd = document.getElementById('btn-add');
+  if (btnAdd) btnAdd.onclick = openAddSheet;
   const btnBackup = document.getElementById('btn-backup');
   if (btnBackup) btnBackup.onclick = openBackupSheet;
-  document.getElementById('btn-save-key').addEventListener('click', saveApiKey);
-  document.getElementById('btn-del-key').addEventListener('click', deleteApiKey);
-  document.getElementById('btn-scan').addEventListener('click', scanCuadrante);
+  const btnSaveKey = document.getElementById('btn-save-key');
+  if (btnSaveKey) btnSaveKey.onclick = saveApiKey;
+
+  // GitHub token
+  const ghInput  = document.getElementById('github-token-input');
+  const ghStatus = document.getElementById('github-sync-status');
+  const savedGhToken = getGithubToken();
+  if (savedGhToken && ghInput) {
+    ghInput.value = savedGhToken;
+    ghInput.className = 'api-key-input saved';
+    if (ghStatus) { ghStatus.textContent = '✅ Token GitHub guardado'; ghStatus.className = 'key-status ok'; }
+  }
+  const btnSaveGh = document.getElementById('btn-save-github');
+  if (btnSaveGh) btnSaveGh.onclick = () => {
+    const val = ghInput?.value?.trim();
+    if (!val || !val.startsWith('ghp_')) {
+      if (ghStatus) { ghStatus.textContent = '⚠ Token inválido (debe empezar por ghp_)'; ghStatus.className='key-status err'; }
+      return;
+    }
+    saveGithubToken(val);
+    if (ghInput) ghInput.className = 'api-key-input saved';
+    if (ghStatus) { ghStatus.textContent = '✅ Token guardado — sincronizando...'; ghStatus.className='key-status ok'; }
+    toast('☁️', 'Token GitHub guardado');
+    syncWithGithub(true);
+  };
+  const btnDelGh = document.getElementById('btn-del-github');
+  if (btnDelGh) btnDelGh.onclick = () => {
+    saveGithubToken('');
+    if (ghInput) { ghInput.value = ''; ghInput.className = 'api-key-input'; }
+    if (ghStatus) { ghStatus.textContent = 'Token eliminado'; ghStatus.className='key-status err'; }
+    toast('🗑', 'Token GitHub eliminado');
+  };
+  const btnSyncGh = document.getElementById('btn-sync-github');
+  if (btnSyncGh) btnSyncGh.onclick = () => syncWithGithub(true);
+  const btnDelKey = document.getElementById('btn-del-key');
+  if (btnDelKey) btnDelKey.onclick = deleteApiKey;
+  const btnScan = document.getElementById('btn-scan');
+  if (btnScan) btnScan.onclick = scanCuadrante;
   // btn-todos y btn-ninguno se registran en renderScanResults
   // btn-importar: onclick directo para evitar listeners duplicados
   const btnManageDelegates = document.getElementById('btn-manage-delegates');
@@ -2821,10 +3042,12 @@ document.addEventListener('DOMContentLoaded', ()=>{
   if (btnAddVac) btnAddVac.onclick = openAddVacSheet;
   const btnImp = document.getElementById('btn-importar');
   if (btnImp) btnImp.onclick = importScannedShifts;
-  document.getElementById('btn-new-year').addEventListener('click', newYear);
+  const btnNewYear = document.getElementById('btn-new-year'); if (btnNewYear) btnNewYear.onclick = newYear;
 
   // Renderizar
   try { renderHome(); } catch(e) { console.error('Error renderHome:', e); }
+
+  // GitHub sync: solo manual desde el botón en Cámara
 });
 
 
