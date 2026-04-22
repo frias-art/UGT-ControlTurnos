@@ -1097,17 +1097,30 @@ let editChanges = {};
 function loadRecords() {
   try {
     const s = localStorage.getItem('ugt_records');
-    if (s) { const p = JSON.parse(s); if (Array.isArray(p) && p.length > 0) return p; }
-  } catch(e) {}
+    if (s) {
+      const p = JSON.parse(s);
+      if (Array.isArray(p)) return p; // devolver aunque esté vacío
+    }
+  } catch(e) { console.error('loadRecords error:', e); }
   return [];
 }
 
 function saveRecords() {
-  try { localStorage.setItem('ugt_records', JSON.stringify(records)); } catch(e) {}
+  try {
+    const data = JSON.stringify(records);
+    localStorage.setItem('ugt_records', data);
+    // Verificar que se guardó correctamente
+    const verify = localStorage.getItem('ugt_records');
+    if (!verify) console.error('saveRecords: fallo al guardar');
+  } catch(e) {
+    console.error('saveRecords error:', e);
+    toast('❌', 'Error al guardar datos');
+  }
   syncYear();
 }
 
 function syncYear() {
+  if (!records) return;
   try {
     const sems = [...new Set(records.map(r=>r[0]))].sort((a,b)=>a-b);
     localStorage.setItem('ugt_year_' + activeYear, JSON.stringify({
@@ -1943,33 +1956,56 @@ function renderScanResults(turnos, semana) {
 
 
 function importScannedShifts() {
-  const semana=parseInt(document.getElementById('cam-sem').value);
-  if(!semana){toast('⚠','Indica el número de semana');return;}
-  let imported=0,skipped=0;
-  scannedShifts.forEach((_,i)=>{
-    const chk=document.getElementById(`rc-${i}`);
-    if(!chk||!chk.classList.contains('on')) return;
-    // Leer del DOM si el usuario editó, sino usar el valor de scannedShifts
-    const raEl = document.getElementById(`ra-${i}`);
-    const rnEl = document.getElementById(`rn-${i}`);
-    const ape = normalizeStr(raEl?.value?.trim() || scannedShifts[i].apellidos || '');
-    const nom = normalizeStr(rnEl?.value?.trim() || scannedShifts[i].nombre    || '');
-    if (!ape) return; // saltar si no hay apellido
-    const turno=scannedShifts[i].turno||'MAÑANA';
-    const exists=records.some(r=>r[0]===semana&&normalizeStr(r[1])===normalizeStr(ape)&&normalizeStr(r[2])===normalizeStr(nom));
-    if(!exists){records.push([semana,ape,nom,turno]);imported++;}else skipped++;
+  const semana = parseInt(document.getElementById('cam-sem')?.value);
+  if (!semana) { toast('⚠','Indica el número de semana'); return; }
+
+  let imported = 0, skipped = 0;
+  scannedShifts.forEach((shift, i) => {
+    const chk = document.getElementById(`rc-${i}`);
+    if (!chk || !chk.classList.contains('on')) return;
+
+    // Leer del DOM si el usuario editó, sino usar scannedShifts
+    const raEl  = document.getElementById(`ra-${i}`);
+    const rnEl  = document.getElementById(`rn-${i}`);
+    const ape   = normalizeStr(raEl?.value?.trim() || shift.apellidos || '');
+    const nom   = normalizeStr(rnEl?.value?.trim() || shift.nombre   || '');
+    const turno = shift.turno || 'MAÑANA';
+
+    if (!ape) return;
+
+    const exists = records.some(r =>
+      r[0] === semana &&
+      normalizeStr(r[1]) === ape &&
+      normalizeStr(r[2]) === nom
+    );
+    if (!exists) { records.push([semana, ape, nom, turno]); imported++; }
+    else skipped++;
   });
-  const maxSem=records.length>0?Math.max(...records.map(r=>r[0])):0;
-  if(maxSem>0) document.getElementById('sem-badge').textContent=`SEM ${maxSem}`;
+
+  // Guardar
   saveRecords();
-  toast('✅',`${imported} importados · ${skipped} ya existían`);
-  document.getElementById('scan-result-area').innerHTML='';
-  document.getElementById('import-wrap').style.display='none';
-  scannedShifts=[];
-  capturedImg=null;
-  document.getElementById('preview-img').style.display='none';
-  document.getElementById('cam-placeholder').style.display='flex';
-  if(document.getElementById('page-home').classList.contains('active')) renderHome();
+
+  // Actualizar badge
+  const maxSem = records.length > 0 ? Math.max(...records.map(r => r[0])) : 0;
+  const badge  = document.getElementById('sem-badge');
+  if (badge && maxSem > 0) badge.textContent = `SEM ${maxSem}`;
+
+  toast('✅', `${imported} importados · ${skipped} ya existían`);
+
+  // Limpiar UI
+  const scanArea = document.getElementById('scan-result-area');
+  if (scanArea) scanArea.innerHTML = '';
+  const importWrap = document.getElementById('import-wrap');
+  if (importWrap) importWrap.style.display = 'none';
+  scannedShifts = [];
+  capturedImg   = null;
+  const prevImg = document.getElementById('preview-img');
+  if (prevImg) { prevImg.src = ''; prevImg.style.display = 'none'; }
+  const placeholder = document.getElementById('cam-placeholder');
+  if (placeholder) placeholder.style.display = 'flex';
+
+  // Actualizar dashboard
+  renderHome();
 }
 
 // ═══════════════════════════════════════════════════
@@ -2732,23 +2768,7 @@ function importBackup(event) {
 document.addEventListener('DOMContentLoaded', ()=>{
   setupPWAIcons();
 
-  // Reset inicial (solo la primera vez que se abre esta versión)
-  try {
-    const resetDone = localStorage.getItem('ugt_reset_v3');
-    if (!resetDone) {
-      localStorage.removeItem('ugt_records');
-      localStorage.removeItem('ugt_year_2026');
-      localStorage.removeItem('ugt_years_idx');
-      localStorage.removeItem('ugt_active_year');
-      localStorage.removeItem('ugt_vac');
-      localStorage.removeItem('ugt_sind');
-      localStorage.removeItem('ugt_delegates');
-      localStorage.setItem('ugt_reset_v3', '1');
-      records = [];
-      vacRecords = [];
-      activeYear = '2026';
-    }
-  } catch(e) {}
+  // Base de datos limpia - sin reset automático
 
   // Cargar año activo y datos
   try{
