@@ -820,11 +820,19 @@ html,body{height:100%;overflow:hidden;background:#0a0c12;color:#e8eaf2;
   <div class="sheet-overlay" id="edit-sheet">
     <div class="sheet">
       <div class="sheet-handle"></div>
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">
-        <div class="sheet-title" id="edit-name"></div>
-        <span style="font-size:.65rem;color:var(--muted)" id="edit-sub"></span>
+      <div class="sheet-title" style="margin-bottom:10px">✏️ Editar trabajador</div>
+      <!-- Editar nombre -->
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px">
+        <div>
+          <label class="form-lbl">Apellidos</label>
+          <input type="text" class="form-input" id="edit-ape-input" style="text-transform:uppercase;font-size:.82rem">
+        </div>
+        <div>
+          <label class="form-lbl">Nombre</label>
+          <input type="text" class="form-input" id="edit-nom-input" style="text-transform:uppercase;font-size:.82rem">
+        </div>
       </div>
-      <div style="font-size:.68rem;color:var(--muted2);margin-bottom:12px">Cambia el turno o pulsa 🗑 para eliminar</div>
+      <div style="font-size:.68rem;color:var(--muted2);margin-bottom:10px">Turnos · <span id="edit-sub"></span></div>
       <div id="edit-rows"></div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:14px">
         <button class="big-btn outline" onclick="closeSheet('edit-sheet')">Cancelar</button>
@@ -2078,8 +2086,11 @@ function openEditSheet(ape, nom) {
   const myRecs=records.map((r,i)=>({i,sem:r[0],turno:r[3]}))
     .filter(r=>records[r.i][1]===ape&&records[r.i][2]===nom)
     .sort((a,b)=>a.sem-b.sem);
-  document.getElementById('edit-name').textContent=ape;
-  document.getElementById('edit-sub').textContent=nom+' · '+myRecs.length+' sem';
+  const apeInput = document.getElementById('edit-ape-input');
+  const nomInput = document.getElementById('edit-nom-input');
+  if (apeInput) apeInput.value = ape;
+  if (nomInput) nomInput.value = nom;
+  document.getElementById('edit-sub').textContent = myRecs.length + ' turnos registrados';
   document.getElementById('edit-rows').innerHTML=myRecs.map(r=>{
     const tc=r.turno==='MAÑANA'?'M':r.turno==='TARDE'?'T':'N';
     return `<div class="edit-row" id="erow-${r.i}">
@@ -2111,23 +2122,52 @@ function markEditDelete(idx) {
 }
 
 function saveEdits() {
-  if(!editTarget) return;
-  const keys=Object.keys(editChanges);
-  if(!keys.length){closeSheet('edit-sheet');return;}
-  let changed=0,deleted=0;
-  keys.map(Number).sort((a,b)=>b-a).forEach(idx=>{
-    if(editChanges[idx]==='DEL'){records.splice(idx,1);deleted++;}
-    else if(records[idx]){records[idx]=[records[idx][0],records[idx][1],records[idx][2],editChanges[idx]];changed++;}
+  if (!editTarget) return;
+
+  // Leer nombre nuevo
+  const newApe = (document.getElementById('edit-ape-input')?.value || '').trim().toUpperCase();
+  const newNom = (document.getElementById('edit-nom-input')?.value || '').trim().toUpperCase();
+  const oldApe = editTarget.ape;
+  const oldNom = editTarget.nom;
+  const nameChanged = newApe && newNom && (newApe !== oldApe || newNom !== oldNom);
+
+  // Aplicar cambios de turno/borrado
+  const keys = Object.keys(editChanges);
+  let changed = 0, deleted = 0;
+  keys.map(Number).sort((a,b) => b-a).forEach(idx => {
+    if (editChanges[idx] === 'DEL') { records.splice(idx, 1); deleted++; }
+    else if (records[idx]) { records[idx] = [records[idx][0], records[idx][1], records[idx][2], editChanges[idx]]; changed++; }
   });
-  saveRecords();
+
+  // Renombrar trabajador en todos sus registros
+  if (nameChanged) {
+    records.forEach((r, i) => {
+      if (normalizeStr(r[1]) === normalizeStr(oldApe) && normalizeStr(r[2]) === normalizeStr(oldNom)) {
+        records[i] = [r[0], newApe, newNom, r[3]];
+      }
+    });
+    // También en vacaciones y bajas
+    vacRecords.forEach((r, i) => {
+      if (normalizeStr(r.ape) === normalizeStr(oldApe) && normalizeStr(r.nom) === normalizeStr(oldNom)) {
+        vacRecords[i] = {...r, ape: newApe, nom: newNom};
+      }
+    });
+    saveVacRecords();
+    changed++;
+    toast('✅', `Nombre actualizado: ${newApe}, ${newNom}`);
+  }
+
+  saveRecordsAndSync();
   closeSheet('edit-sheet');
-  editChanges={}; editTarget=null;
-  const active=document.querySelector('.page.active')?.id;
-  if(active==='page-home') renderHome();
-  else if(active==='page-workers') renderWorkers();
-  else if(active==='page-rank') renderRank();
-  else if(active==='page-weeks') renderWeeks();
-  toast('✅',`${changed} cambiados · ${deleted} eliminados`);
+  editChanges = {}; editTarget = null;
+
+  const active = document.querySelector('.page.active')?.id;
+  if (active === 'page-home')    renderHome();
+  else if (active === 'page-workers') renderWorkers();
+  else if (active === 'page-rank')    renderRank();
+  else if (active === 'page-weeks')   renderWeeks();
+
+  if (!nameChanged) toast('✅', `${changed} cambiados · ${deleted} eliminados`);
 }
 
 // ═══════════════════════════════════════════════════
