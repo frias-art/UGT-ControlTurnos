@@ -579,20 +579,33 @@ html,body{height:100%;overflow:hidden;background:#0a0c12;color:#e8eaf2;
         </div>
         <div class="key-status" id="key-status">Sin API Key guardada</div>
 
-        <!-- GitHub Sync -->
+        <!-- GitHub Gist Sync -->
         <div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--border)">
-          <div class="card-label" style="margin-bottom:6px">☁️ Sincronización GitHub</div>
-          <div class="api-key-wrap">
-            <input type="password" class="api-key-input" id="github-token-input"
-              placeholder="ghp_..." autocomplete="off" spellcheck="false">
-            <button class="big-btn primary" style="padding:11px 13px;flex-shrink:0"
-              id="btn-save-github">💾</button>
-            <button class="big-btn danger" style="padding:11px 11px;flex-shrink:0"
-              id="btn-del-github">🗑</button>
+          <div class="card-label" style="margin-bottom:6px">☁️ Nube — GitHub Gist</div>
+          <div style="font-size:.68rem;color:var(--muted2);margin-bottom:8px">
+            Los datos se guardan en un Gist privado de GitHub. Token con permisos <b>gist</b>.
           </div>
-          <div class="key-status" id="github-sync-status">Sin token GitHub</div>
-          <button class="big-btn outline full" style="margin-top:8px;font-size:.75rem"
-            id="btn-sync-github">🔄 Sincronizar ahora con GitHub</button>
+          <div class="form-field">
+            <label class="form-lbl">Token GitHub (ghp_...)</label>
+            <div class="api-key-wrap">
+              <input type="password" class="api-key-input" id="github-token-input"
+                placeholder="ghp_..." autocomplete="off" spellcheck="false">
+              <button class="big-btn primary" style="padding:11px 13px;flex-shrink:0"
+                id="btn-save-github">💾</button>
+              <button class="big-btn danger" style="padding:11px 11px;flex-shrink:0"
+                id="btn-del-github">🗑</button>
+            </div>
+          </div>
+          <div class="form-field">
+            <label class="form-lbl">ID del Gist (opcional — se crea automáticamente)</label>
+            <input type="text" class="form-input" id="gist-id-input"
+              placeholder="Dejar vacío para crear uno nuevo" autocomplete="off" spellcheck="false"
+              style="font-size:.72rem">
+          </div>
+          <div class="key-status" id="github-sync-status">Sin configurar</div>
+          <button class="big-btn full" style="background:linear-gradient(135deg,#1a1e2e,#252840);
+            border:1px solid var(--accent);color:var(--accent);margin-top:8px"
+            id="btn-sync-github">☁️ Sincronizar con GitHub Gist</button>
         </div>
         <!-- Modo de escaneo -->
         <div class="scan-mode-tabs">
@@ -2780,63 +2793,55 @@ function importBackup(event) {
 
 
 // ═══════════════════════════════════════════════════
-// SINCRONIZACIÓN CON GITHUB
+// SINCRONIZACIÓN CON GITHUB GIST
 // ═══════════════════════════════════════════════════
-const GITHUB_REPO  = 'frias-art/ugt-control-turnos';
-const GITHUB_FILE  = 'datos_turnos.json';
-const GITHUB_BRANCH = 'main';
+// Usar Gist en lugar de repo porque Gist tiene CORS habilitado
+// El usuario crea un Gist en gist.github.com y pega el ID aquí
 
-function getGithubToken() {
-  try { return localStorage.getItem('ugt_github_token') || ''; } catch(e) { return ''; }
-}
-function saveGithubToken(t) {
-  try { localStorage.setItem('ugt_github_token', t); } catch(e) {}
-}
+function getGithubToken()  { try { return localStorage.getItem('ugt_github_token') || ''; } catch(e) { return ''; } }
+function getGistId()       { try { return localStorage.getItem('ugt_gist_id')      || ''; } catch(e) { return ''; } }
+function saveGithubToken(t){ try { localStorage.setItem('ugt_github_token', t); } catch(e) {} }
+function saveGistId(id)    { try { localStorage.setItem('ugt_gist_id', id);      } catch(e) {} }
 
-// ── Cargar datos desde GitHub ─────────────────────
-async function loadFromGithub() {
-  const token = getGithubToken();
-  if (!token) return null;
+const GIST_FILENAME = 'ugt_turnos_datos.json';
+
+// ── Cargar desde Gist ────────────────────────────
+async function loadFromGist() {
+  const token  = getGithubToken();
+  const gistId = getGistId();
+  if (!token || !gistId) return null;
   try {
-    const resp = await fetch(
-      `https://api.github.com/repos/${GITHUB_REPO}/contents/${GITHUB_FILE}?ref=${GITHUB_BRANCH}&t=${Date.now()}`,
-      { headers: { 'Authorization': `token ${token}`, 'Accept': 'application/vnd.github.v3+json' } }
-    );
-    if (resp.status === 404) return null; // fichero no existe aún
-    if (!resp.ok) throw new Error(`GitHub error ${resp.status}`);
-    const data = await resp.json();
-    const content = JSON.parse(atob(data.content.replace(/\n/g,'')));
-    content._sha = data.sha; // guardar sha para poder actualizar
-    return content;
+    const resp = await fetch(`https://api.github.com/gists/${gistId}`, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Accept': 'application/vnd.github+json',
+        'X-GitHub-Api-Version': '2022-11-28'
+      }
+    });
+    if (!resp.ok) {
+      const err = await resp.json();
+      throw new Error(err.message || `Error ${resp.status}`);
+    }
+    const gist = await resp.json();
+    const file = gist.files[GIST_FILENAME];
+    if (!file) return null;
+    return JSON.parse(file.content);
   } catch(e) {
-    console.warn('loadFromGithub:', e.message);
-    return null;
+    console.warn('loadFromGist:', e.message);
+    throw e;
   }
 }
 
-// ── Guardar datos en GitHub ───────────────────────
-async function saveToGithub() {
-  const token = getGithubToken();
-  if (!token) return false;
+// ── Guardar en Gist ──────────────────────────────
+async function saveToGist() {
+  const token  = getGithubToken();
+  const gistId = getGistId();
+  if (!token || !gistId) return false;
   try {
-    // Obtener sha actual (necesario para actualizar)
-    let sha = '';
-    const check = await fetch(
-      `https://api.github.com/repos/${GITHUB_REPO}/contents/${GITHUB_FILE}?ref=${GITHUB_BRANCH}`,
-      { headers: { 'Authorization': `token ${token}`, 'Accept': 'application/vnd.github.v3+json' } }
-    );
-    if (check.ok) {
-      const existing = await check.json();
-      sha = existing.sha;
-    }
-
     const payload = {
       version: '2.0',
       savedAt: new Date().toISOString(),
-      activeYear,
-      records,
-      vacRecords,
-      sindRecords,
+      activeYear, records, vacRecords, sindRecords,
       delegates: DELEGATES,
       yearsIdx: getYearsIdx(),
       yearData: {}
@@ -2846,104 +2851,143 @@ async function saveToGithub() {
       if (d) payload.yearData[y] = d;
     });
 
-    const body = {
-      message: `Actualización turnos ${new Date().toLocaleDateString('es-ES')}`,
-      content: btoa(unescape(encodeURIComponent(JSON.stringify(payload, null, 2)))),
-      branch: GITHUB_BRANCH
-    };
-    if (sha) body.sha = sha;
-
-    const resp = await fetch(
-      `https://api.github.com/repos/${GITHUB_REPO}/contents/${GITHUB_FILE}`,
-      {
-        method: 'PUT',
-        headers: {
-          'Authorization': `token ${token}`,
-          'Accept': 'application/vnd.github.v3+json',
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(body)
-      }
-    );
+    const resp = await fetch(`https://api.github.com/gists/${gistId}`, {
+      method: 'PATCH',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Accept': 'application/vnd.github+json',
+        'X-GitHub-Api-Version': '2022-11-28',
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        description: `UGT Turnos - ${new Date().toLocaleDateString('es-ES')}`,
+        files: { [GIST_FILENAME]: { content: JSON.stringify(payload, null, 2) } }
+      })
+    });
     if (!resp.ok) {
       const err = await resp.json();
       throw new Error(err.message || `Error ${resp.status}`);
     }
     return true;
   } catch(e) {
-    console.error('saveToGithub:', e.message);
+    console.error('saveToGist:', e.message);
     return false;
   }
 }
 
-// ── Sincronizar: cargar al abrir, guardar tras cambios ──
-async function syncWithGithub(showToast=true) {
+// ── Crear nuevo Gist ─────────────────────────────
+async function createGist() {
   const token = getGithubToken();
-  if (!token) {
-    toast('⚠', 'Primero guarda tu token de GitHub');
-    return;
-  }
-  const status = document.getElementById('github-sync-status');
-  if (status) { status.textContent = '🔄 Sincronizando...'; status.className = 'key-status'; }
+  if (!token) return null;
   try {
-    const remote = await loadFromGithub();
-    if (remote) {
-      const remoteDate = remote.savedAt ? new Date(remote.savedAt) : new Date(0);
-      const localDate  = localStorage.getItem('ugt_last_save')
-                         ? new Date(localStorage.getItem('ugt_last_save')) : new Date(0);
+    const resp = await fetch('https://api.github.com/gists', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Accept': 'application/vnd.github+json',
+        'X-GitHub-Api-Version': '2022-11-28',
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        description: 'UGT Control de Turnos 2.0 - Datos',
+        public: false,
+        files: { [GIST_FILENAME]: { content: '{}' } }
+      })
+    });
+    if (!resp.ok) {
+      const err = await resp.json();
+      throw new Error(err.message || `Error ${resp.status}`);
+    }
+    const gist = await resp.json();
+    return gist.id;
+  } catch(e) {
+    console.error('createGist:', e.message);
+    throw e;
+  }
+}
+
+// ── Sincronizar ──────────────────────────────────
+async function syncWithGithub(showToast=true) {
+  const token  = getGithubToken();
+  const gistId = getGistId();
+  if (!token) { toast('⚠', 'Guarda tu token de GitHub primero'); return; }
+
+  const status = document.getElementById('github-sync-status');
+  const setStatus = (msg, cls) => { if (status) { status.textContent = msg; status.className = 'key-status ' + (cls||''); } };
+
+  setStatus('🔄 Conectando con GitHub...', '');
+
+  try {
+    // Si no hay Gist ID, crear uno nuevo automáticamente
+    let currentGistId = gistId;
+    if (!currentGistId) {
+      setStatus('🔄 Creando Gist privado...', '');
+      currentGistId = await createGist();
+      if (!currentGistId) throw new Error('No se pudo crear el Gist');
+      saveGistId(currentGistId);
+      // Actualizar el input
+      const gistInput = document.getElementById('gist-id-input');
+      if (gistInput) gistInput.value = currentGistId;
+      toast('✅', 'Gist creado automáticamente');
+    }
+
+    // Cargar datos remotos
+    let remote = null;
+    try { remote = await loadFromGist(); } catch(e) { /* gist existe pero fichero vacío */ }
+
+    if (remote && remote.savedAt) {
+      const remoteDate = new Date(remote.savedAt);
+      const localDate  = localStorage.getItem('ugt_last_save') ? new Date(localStorage.getItem('ugt_last_save')) : new Date(0);
+
       if (remoteDate > localDate) {
+        // Datos remotos más recientes → cargar
         records     = Array.isArray(remote.records)     ? remote.records     : records;
         vacRecords  = Array.isArray(remote.vacRecords)  ? remote.vacRecords  : vacRecords;
         sindRecords = Array.isArray(remote.sindRecords) ? remote.sindRecords : sindRecords;
         if (Array.isArray(remote.delegates) && remote.delegates.length) {
-          try {
-            while (DELEGATES.length) DELEGATES.pop();
-            remote.delegates.forEach(d => DELEGATES.push(d));
-            saveDelegates();
-          } catch(e) {}
+          try { while (DELEGATES.length) DELEGATES.pop(); remote.delegates.forEach(d => DELEGATES.push(d)); saveDelegates(); } catch(e) {}
         }
         if (remote.activeYear) activeYear = remote.activeYear;
         if (remote.yearsIdx)   saveYearsIdx(remote.yearsIdx);
-        if (remote.yearData) {
-          Object.entries(remote.yearData).forEach(([y,d]) => {
-            try { localStorage.setItem('ugt_year_' + y, JSON.stringify(d)); } catch(e) {}
-          });
-        }
+        if (remote.yearData)   Object.entries(remote.yearData).forEach(([y,d]) => { try { localStorage.setItem('ugt_year_'+y, JSON.stringify(d)); } catch(e) {} });
         try {
-          localStorage.setItem('ugt_records',  JSON.stringify(records));
-          localStorage.setItem('ugt_vac',       JSON.stringify(vacRecords));
-          localStorage.setItem('ugt_sind',      JSON.stringify(sindRecords));
+          localStorage.setItem('ugt_records', JSON.stringify(records));
+          localStorage.setItem('ugt_vac', JSON.stringify(vacRecords));
+          localStorage.setItem('ugt_sind', JSON.stringify(sindRecords));
           localStorage.setItem('ugt_last_save', remote.savedAt);
         } catch(e) {}
         renderHome();
-        if (showToast) toast('☁️', `GitHub → ${records.length} turnos cargados`);
-      } else {
-        if (showToast) toast('✅', 'Ya tienes los datos más recientes');
+        if (showToast) toast('☁️', `Cargado desde Gist · ${records.length} turnos`);
+        setStatus('✅ Sincronizado · datos remotos cargados', 'ok');
+        return;
       }
-    } else {
-      // No hay fichero remoto todavía — subir los datos locales
-      const ok = await saveToGithub();
-      if (status) { status.textContent = ok ? '✅ Datos subidos a GitHub' : '❌ Error al subir'; status.className = ok ? 'key-status ok' : 'key-status err'; }
-      if (showToast) toast(ok ? '☁️' : '❌', ok ? 'Datos subidos a GitHub' : 'Error al subir');
-      return;
     }
-    if (status) { status.textContent = '✅ Sincronizado con GitHub'; status.className = 'key-status ok'; }
+
+    // Datos locales más recientes o no hay remotos → subir
+    setStatus('🔄 Subiendo datos...', '');
+    try { localStorage.setItem('ugt_last_save', new Date().toISOString()); } catch(e) {}
+    const ok = await saveToGist();
+    if (ok) {
+      setStatus('✅ Datos guardados en GitHub Gist', 'ok');
+      if (showToast) toast('☁️', `Guardado en Gist · ${records.length} turnos`);
+    } else {
+      throw new Error('No se pudo guardar en el Gist');
+    }
   } catch(e) {
-    console.error('syncWithGithub:', e);
-    if (status) { status.textContent = '❌ Error: ' + e.message.slice(0,40); status.className = 'key-status err'; }
-    if (showToast) toast('❌', 'Error GitHub: ' + e.message.slice(0,30));
+    setStatus('❌ Error: ' + e.message.slice(0, 50), 'err');
+    if (showToast) toast('❌', e.message.slice(0, 40));
   }
 }
 
-// Guardar en GitHub después de cada importación
 async function saveRecordsAndSync() {
   saveRecords();
-  const token = getGithubToken();
-  if (!token) return;
+  const token  = getGithubToken();
+  const gistId = getGistId();
+  if (!token || !gistId) return;
   try { localStorage.setItem('ugt_last_save', new Date().toISOString()); } catch(e) {}
-  const ok = await saveToGithub();
-  if (ok) toast('☁️', 'Guardado en GitHub ✓');
-  else    toast('⚠️', 'Guardado local OK · GitHub falló');
+  const ok = await saveToGist();
+  if (ok) toast('☁️', 'Guardado en Gist ✓');
+  else    toast('⚠', 'Local OK · Gist falló');
 }
 
 
@@ -2998,34 +3042,42 @@ document.addEventListener('DOMContentLoaded', ()=>{
   if (btnSaveKey) btnSaveKey.onclick = saveApiKey;
 
   // GitHub token
-  const ghInput  = document.getElementById('github-token-input');
-  const ghStatus = document.getElementById('github-sync-status');
-  const savedGhToken = getGithubToken();
-  if (savedGhToken && ghInput) {
-    ghInput.value = savedGhToken;
-    ghInput.className = 'api-key-input saved';
-    if (ghStatus) { ghStatus.textContent = '✅ Token GitHub guardado'; ghStatus.className = 'key-status ok'; }
-  }
+  // GitHub Gist sync
+  const ghInput    = document.getElementById('github-token-input');
+  const ghStatus   = document.getElementById('github-sync-status');
+  const gistInput  = document.getElementById('gist-id-input');
+  // Restaurar valores guardados
+  const savedToken  = getGithubToken();
+  const savedGistId = getGistId();
+  if (savedToken && ghInput)   { ghInput.value = savedToken;   ghInput.className = 'api-key-input saved'; }
+  if (savedGistId && gistInput){ gistInput.value = savedGistId; }
+  if (savedToken && ghStatus)  { ghStatus.textContent = savedGistId ? '✅ Configurado · listo para sincronizar' : '✅ Token OK · pulsa sincronizar para crear Gist'; ghStatus.className = 'key-status ok'; }
+
   const btnSaveGh = document.getElementById('btn-save-github');
   if (btnSaveGh) btnSaveGh.onclick = () => {
     const val = ghInput?.value?.trim();
     if (!val || !val.startsWith('ghp_')) {
-      if (ghStatus) { ghStatus.textContent = '⚠ Token inválido (debe empezar por ghp_)'; ghStatus.className='key-status err'; }
+      if (ghStatus) { ghStatus.textContent = '⚠ Token inválido (debe empezar por ghp_)'; ghStatus.className = 'key-status err'; }
       return;
     }
     saveGithubToken(val);
+    // Guardar también el Gist ID si se escribió
+    const gistVal = gistInput?.value?.trim();
+    if (gistVal) saveGistId(gistVal);
     if (ghInput) ghInput.className = 'api-key-input saved';
-    if (ghStatus) { ghStatus.textContent = '✅ Token guardado — sincronizando...'; ghStatus.className='key-status ok'; }
-    toast('☁️', 'Token GitHub guardado');
-    syncWithGithub(true);
+    if (ghStatus) { ghStatus.textContent = '✅ Token guardado'; ghStatus.className = 'key-status ok'; }
+    toast('💾', 'Token guardado');
   };
   const btnDelGh = document.getElementById('btn-del-github');
   if (btnDelGh) btnDelGh.onclick = () => {
-    saveGithubToken('');
-    if (ghInput) { ghInput.value = ''; ghInput.className = 'api-key-input'; }
-    if (ghStatus) { ghStatus.textContent = 'Token eliminado'; ghStatus.className='key-status err'; }
-    toast('🗑', 'Token GitHub eliminado');
+    saveGithubToken(''); saveGistId('');
+    if (ghInput)   { ghInput.value = '';   ghInput.className = 'api-key-input'; }
+    if (gistInput)   gistInput.value = '';
+    if (ghStatus)  { ghStatus.textContent = 'Configuración eliminada'; ghStatus.className = 'key-status err'; }
+    toast('🗑', 'Configuración GitHub eliminada');
   };
+  // Guardar Gist ID cuando cambia el input
+  if (gistInput) gistInput.onchange = () => { const v = gistInput.value.trim(); if (v) saveGistId(v); };
   const btnSyncGh = document.getElementById('btn-sync-github');
   if (btnSyncGh) btnSyncGh.onclick = () => syncWithGithub(true);
   const btnDelKey = document.getElementById('btn-del-key');
