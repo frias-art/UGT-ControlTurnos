@@ -7,6 +7,9 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="theme-color" content="#0a0c12">
 <title>UGT Control de Turnos 2.0</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700;800;900&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <style>
@@ -82,7 +85,8 @@ html,body{height:100%;overflow:hidden;background:#0a0c12;color:#e8eaf2;
 .page.active{display:block}
 
 /* CARDS */
-.card{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:16px;margin-bottom:14px}
+.card{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:16px;margin-bottom:14px;
+  box-shadow:0 2px 12px rgba(0,0,0,.4)}
 .card-label{font-size:.8rem;font-weight:700;color:var(--muted2);text-transform:uppercase;
   letter-spacing:.8px;margin-bottom:10px}
 
@@ -90,9 +94,15 @@ html,body{height:100%;overflow:hidden;background:#0a0c12;color:#e8eaf2;
 .kpi-row{display:grid;gap:8px;margin-bottom:12px}
 .kpi-row.three{grid-template-columns:repeat(3,1fr)}
 .kpi-row.one{grid-template-columns:1fr}
-.kpi{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:12px 10px;text-align:center}
+.kpi{background:var(--card2);border:1px solid var(--border);border-radius:12px;padding:12px 10px;text-align:center;
+  box-shadow:0 2px 10px rgba(0,0,0,.35);position:relative;overflow:hidden}
+.kpi::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;border-radius:12px 12px 0 0}
 .kpi.M{border-left:3px solid var(--M)}.kpi.T{border-left:3px solid var(--T)}.kpi.N{border-left:3px solid var(--N)}
 .kpi.A{border-left:3px solid var(--accent)}
+.kpi.M::before{background:linear-gradient(90deg,var(--M),transparent)}
+.kpi.T::before{background:linear-gradient(90deg,var(--T),transparent)}
+.kpi.N::before{background:linear-gradient(90deg,var(--N),transparent)}
+.kpi.A::before{background:linear-gradient(90deg,var(--accent),transparent)}
 .kpi-lbl{font-size:.72rem;color:var(--muted2);margin-bottom:4px}
 .kpi-val{font-size:1.8rem;font-weight:900;line-height:1}
 .kpi.M .kpi-val{color:var(--M)}.kpi.T .kpi-val{color:var(--T)}.kpi.N .kpi-val{color:var(--N)}.kpi.A .kpi-val{color:var(--accent)}
@@ -156,7 +166,8 @@ html,body{height:100%;overflow:hidden;background:#0a0c12;color:#e8eaf2;
   display:none;align-items:flex-end;justify-content:center}
 .sheet-overlay.open{display:flex}
 .sheet{background:var(--card);border-radius:20px 20px 0 0;padding:16px 16px 32px;
-  width:100%;max-width:480px;max-height:88vh;overflow-y:auto}
+  width:100%;max-width:480px;max-height:88vh;overflow-y:auto;
+  box-shadow:0 -4px 32px rgba(0,0,0,.6)}
 .sheet-handle{width:36px;height:4px;background:var(--border);border-radius:2px;margin:0 auto 14px}
 .sheet-title{font-size:1rem;font-weight:800;margin-bottom:4px}
 
@@ -358,7 +369,7 @@ html,body{height:100%;overflow:hidden;background:#0a0c12;color:#e8eaf2;
 
 /* ── SALIDAS SINDICALES ── */
 .sindical-card{background:var(--card);border:1px solid var(--border);border-radius:14px;
-  padding:14px;margin-bottom:12px}
+  padding:14px;margin-bottom:12px;box-shadow:0 2px 12px rgba(0,0,0,.4)}
 .sindical-delegate{display:flex;align-items:center;gap:12px;padding:14px 0;
   border-bottom:1px solid var(--border)}
 .sindical-delegate:last-child{border-bottom:none}
@@ -485,7 +496,10 @@ html,body{height:100%;overflow:hidden;background:#0a0c12;color:#e8eaf2;
     <div class="page active" id="page-home">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">
         <div class="section-title" style="margin-bottom:0">📊 Dashboard</div>
-        <span id="dash-sub" style="font-size:.65rem;color:var(--muted2)"></span>
+        <div style="display:flex;align-items:center;gap:6px">
+          <span id="current-week-chip" style="display:none;background:rgba(34,211,238,.15);border:1px solid var(--accent);color:var(--accent);font-size:.65rem;font-weight:800;padding:3px 9px;border-radius:20px"></span>
+          <span id="dash-sub" style="font-size:.65rem;color:var(--muted2)"></span>
+        </div>
       </div>
       <div class="kpi-row one" id="kpi-top"></div>
       <div class="kpi-row three" id="kpi-mid"></div>
@@ -813,6 +827,7 @@ html,body{height:100%;overflow:hidden;background:#0a0c12;color:#e8eaf2;
         <button class="big-btn outline" onclick="closeSheet('worker-sheet')">Cerrar</button>
         <button class="big-btn primary" id="ws-edit-btn">✏️ Editar turnos</button>
       </div>
+      <button class="big-btn outline full" style="margin-top:8px" id="ws-excel-btn">⬇ Exportar Excel individual</button>
     </div>
   </div>
 
@@ -1247,6 +1262,22 @@ function renderHome() {
   const totN = acum.reduce((s,w)=>s+w.N,0);
   const tot = totM+totT+totN||1;
 
+  // Chip semana actual del año
+  const now = new Date();
+  const startOfYear = new Date(now.getFullYear(), 0, 1);
+  const weekNum = Math.ceil(((now - startOfYear) / 86400000 + startOfYear.getDay() + 1) / 7);
+  const chipEl = document.getElementById('current-week-chip');
+  if (chipEl) {
+    chipEl.textContent = `📅 SEM ${weekNum}`;
+    chipEl.style.display = 'inline-block';
+    // Si la semana actual ya está registrada, resaltarla
+    const hasCurrentWeek = sems.includes(weekNum);
+    chipEl.style.background = hasCurrentWeek ? 'rgba(34,211,238,.2)' : 'rgba(251,191,36,.15)';
+    chipEl.style.borderColor = hasCurrentWeek ? 'var(--accent)' : 'var(--M)';
+    chipEl.style.color = hasCurrentWeek ? 'var(--accent)' : 'var(--M)';
+    chipEl.title = hasCurrentWeek ? `Semana ${weekNum} registrada ✓` : `Semana ${weekNum} aún no registrada`;
+  }
+
   const maxSemDash = sems.length > 0 ? Math.max(...sems) : 0;
   const subEl = document.getElementById('dash-sub');
   if (subEl) subEl.textContent = acum.length > 0
@@ -1420,6 +1451,7 @@ function openWorkerSheet(ape, nom) {
     <div style="width:${((w.N/tot)*100).toFixed(0)}%;height:100%;background:#c084fc"></div></div>
     <div class="bar-num" style="color:var(--N)">${w.N}</div></div>`;
   document.getElementById('ws-edit-btn').onclick = ()=>{ closeSheet('worker-sheet'); openEditSheet(ape,nom); };
+  document.getElementById('ws-excel-btn').onclick = ()=> exportWorkerExcel(ape, nom);
   openSheet('worker-sheet');
 }
 
@@ -1497,6 +1529,8 @@ function renderRankList() {
       <div class="rank-num ${nc}">${i+1}</div>
       <div class="rank-info"><div class="rank-ape">${w.ape}</div><div class="rank-nom">${w.nom}</div></div>
       <div class="rank-count" style="color:${col}">${val(w)}</div>
+      <button class="del-btn" style="background:rgba(34,211,238,.1);color:var(--accent);margin-left:6px" title="Editar turnos"
+        onclick="event.stopPropagation();openEditSheet('${w.ape.replace(/'/g,"\\'")}','${w.nom.replace(/'/g,"\\'")}')">✏️</button>
     </div>`;
   }).join('');
 }
@@ -1522,12 +1556,36 @@ async function startCam() {
   } catch(e) { toast('⚠','No se pudo acceder a la cámara'); }
 }
 
-function snap() {
+// Corrige orientación EXIF: si la foto salió en vertical, la rota a landscape
+function fixImageOrientation(dataUrl) {
+  return new Promise(resolve => {
+    const img = new Image();
+    img.onload = () => {
+      const c = document.createElement('canvas');
+      if (img.height > img.width) {
+        c.width = img.height; c.height = img.width;
+        const ctx = c.getContext('2d');
+        ctx.translate(c.width/2, c.height/2);
+        ctx.rotate(Math.PI/2);
+        ctx.drawImage(img, -img.width/2, -img.height/2);
+      } else {
+        c.width = img.width; c.height = img.height;
+        c.getContext('2d').drawImage(img, 0, 0);
+      }
+      resolve(c.toDataURL('image/jpeg', 0.92));
+    };
+    img.onerror = () => resolve(dataUrl);
+    img.src = dataUrl;
+  });
+}
+
+async function snap() {
   const v = document.getElementById('video-el');
   const c = document.getElementById('photo-canvas');
   c.width=v.videoWidth; c.height=v.videoHeight;
   c.getContext('2d').drawImage(v,0,0);
-  capturedImg = c.toDataURL('image/jpeg',0.92);
+  const raw = c.toDataURL('image/jpeg',0.92);
+  capturedImg = await fixImageOrientation(raw);
   showPreview(capturedImg);
   stopCam();
   toast('📸','Foto capturada');
@@ -1550,7 +1608,10 @@ function showPreview(url) {
 function fromGallery(e) {
   const f = e.target.files[0]; if (!f) return;
   const r = new FileReader();
-  r.onload = ev=>{ capturedImg=ev.target.result; showPreview(capturedImg); };
+  r.onload = async ev=>{
+    capturedImg = await fixImageOrientation(ev.target.result);
+    showPreview(capturedImg);
+  };
   r.readAsDataURL(f);
 }
 
@@ -2005,6 +2066,26 @@ function importScannedShifts() {
   const semana = parseInt(document.getElementById('cam-sem')?.value);
   if (!semana) { toast('⚠','Indica el número de semana'); return; }
 
+  // Contar seleccionados y duplicados antes de importar
+  let toImport = 0, wouldSkip = 0;
+  scannedShifts.forEach((shift, i) => {
+    const chk = document.getElementById(`rc-${i}`);
+    if (!chk || !chk.classList.contains('on')) return;
+    const raEl = document.getElementById(`ra-${i}`);
+    const rnEl = document.getElementById(`rn-${i}`);
+    const ape  = normalizeStr(raEl?.value?.trim() || shift.apellidos || '');
+    const nom  = normalizeStr(rnEl?.value?.trim() || shift.nombre   || '');
+    if (!ape) return;
+    const exists = records.some(r => r[0]===semana && normalizeStr(r[1])===ape && normalizeStr(r[2])===nom);
+    if (!exists) toImport++; else wouldSkip++;
+  });
+
+  if (toImport === 0) { toast('⚠', wouldSkip > 0 ? `Todos ya existen en semana ${semana}` : 'Nada seleccionado'); return; }
+
+  const msg = `¿Importar ${toImport} turno${toImport!==1?'s':''} a la semana ${semana}?` +
+              (wouldSkip > 0 ? `\n(${wouldSkip} ya existente${wouldSkip!==1?'s':''} se omitirán)` : '');
+  if (!confirm(msg)) return;
+
   let imported = 0, skipped = 0;
   scannedShifts.forEach((shift, i) => {
     const chk = document.getElementById(`rc-${i}`);
@@ -2196,6 +2277,34 @@ function exportExcel() {
 }
 
 function exportYearExcel() { exportExcel(); }
+
+function exportWorkerExcel(ape, nom) {
+  if (typeof XLSX === 'undefined') { toast('⚠','XLSX no disponible'); return; }
+  const acum = buildAcum();
+  const w = acum.find(x => x.ape === ape && x.nom === nom);
+  if (!w) { toast('⚠','Trabajador no encontrado'); return; }
+  const sems = allSems();
+  const wb = XLSX.utils.book_new();
+
+  // Hoja resumen
+  const resumen = [
+    ['APELLIDOS', 'NOMBRE', 'MAÑANAS', 'TARDES', 'NOCHES', 'TOTAL'],
+    [w.ape, w.nom, w.M, w.T, w.N, w.total]
+  ];
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(resumen), 'Resumen');
+
+  // Hoja detalle semana a semana
+  const detalle = [['SEMANA', 'TURNO']];
+  sems.forEach(s => {
+    const t = w.sems[s];
+    if (t) detalle.push([`Semana ${s}`, t === 'M' ? 'MAÑANA' : t === 'T' ? 'TARDE' : 'NOCHE']);
+  });
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(detalle), 'Detalle semanas');
+
+  const filename = `UGT_${w.ape}_${w.nom}_${activeYear}.xlsx`.replace(/\s+/g, '_');
+  XLSX.writeFile(wb, filename);
+  toast('⬇', `Excel de ${w.ape} exportado`);
+}
 
 // ═══════════════════════════════════════════════════
 // HISTORIAL
