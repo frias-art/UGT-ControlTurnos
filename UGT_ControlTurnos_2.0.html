@@ -1576,7 +1576,7 @@ async function startCam() {
 }
 
 function adjustCamContainer(videoEl) {
-  const wrap = document.getElementById('cam-preview-wrap');
+  const wrap = document.getElementById('cam-wrap');
   if (!wrap) return;
   const vw = videoEl.videoWidth;
   const vh = videoEl.videoHeight;
@@ -1611,7 +1611,7 @@ function fixImageOrientation(dataUrl) {
 
 async function snap() {
   const v = document.getElementById('video-el');
-  const wrap = document.getElementById('cam-preview-wrap');
+  const wrap = document.getElementById('cam-wrap');
   const c = document.getElementById('photo-canvas');
 
   const vw = v.videoWidth;
@@ -1625,13 +1625,11 @@ async function snap() {
 
   let sx, sy, sw, sh;
   if (videoRatio > displayRatio) {
-    // El stream es más ancho — se recortan los laterales
     sh = vh;
     sw = vh * displayRatio;
     sx = (vw - sw) / 2;
     sy = 0;
   } else {
-    // El stream es más alto — se recortan arriba y abajo
     sw = vw;
     sh = vw / displayRatio;
     sx = 0;
@@ -1656,7 +1654,7 @@ function stopCam() {
     window.removeEventListener('resize', window._camOrientationHandler);
     window._camOrientationHandler = null;
   }
-  const wrap = document.getElementById('cam-preview-wrap');
+  const wrap = document.getElementById('cam-wrap');
   if (wrap) { wrap.style.aspectRatio = ''; wrap.style.minHeight = '180px'; }
   document.getElementById('video-el').style.display = 'none';
   document.getElementById('cam-guide').style.display = 'none';
