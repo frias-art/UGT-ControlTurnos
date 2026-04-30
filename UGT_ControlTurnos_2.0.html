@@ -372,6 +372,25 @@ html,body{height:100%;overflow:hidden;background:#0a0c12;color:#e8eaf2;
 /* ── SALIDAS SINDICALES ── */
 .sindical-card{background:var(--card);border:1px solid var(--border);border-radius:14px;
   padding:14px;margin-bottom:12px;box-shadow:0 2px 12px rgba(0,0,0,.4)}
+
+/* Scan log */
+.scan-log-card{background:var(--card);border:1px solid var(--border);border-radius:14px;
+  padding:14px;margin-bottom:10px;box-shadow:0 2px 12px rgba(0,0,0,.4)}
+.scan-log-header{display:flex;gap:10px;align-items:flex-start;cursor:pointer}
+.scan-log-thumb{width:72px;height:50px;object-fit:cover;border-radius:8px;flex-shrink:0;
+  background:var(--card2);border:1px solid var(--border)}
+.scan-log-thumb-empty{width:72px;height:50px;border-radius:8px;flex-shrink:0;
+  background:var(--card2);border:1px solid var(--border);display:flex;align-items:center;
+  justify-content:center;font-size:1.4rem}
+.scan-log-meta{flex:1;min-width:0}
+.scan-log-sem{font-size:.9rem;font-weight:800;color:var(--text)}
+.scan-log-date{font-size:.65rem;color:var(--muted2);margin-top:2px}
+.scan-log-badges{display:flex;gap:5px;margin-top:6px;flex-wrap:wrap}
+.scan-log-badge{font-size:.65rem;font-weight:700;padding:2px 7px;border-radius:20px}
+.scan-log-detail{margin-top:12px;border-top:1px solid var(--border);padding-top:10px;display:none}
+.scan-log-row{display:flex;align-items:center;justify-content:space-between;
+  padding:5px 0;border-bottom:1px solid rgba(255,255,255,.04);font-size:.75rem}
+.scan-log-row:last-child{border-bottom:none}
 .sindical-delegate{display:flex;align-items:center;gap:12px;padding:14px 0;
   border-bottom:1px solid var(--border)}
 .sindical-delegate:last-child{border-bottom:none}
@@ -709,6 +728,15 @@ html,body{height:100%;overflow:hidden;background:#0a0c12;color:#e8eaf2;
     <!-- HISTORIAL -->
     <div class="page" id="page-hist">
       <div class="section-title">📅 Historial anual</div>
+
+      <!-- Pestañas historial -->
+      <div class="section-tabs" style="margin-bottom:14px">
+        <div class="section-tab active" id="htab-anual" onclick="setHistTab('anual',this)">📊 Anual</div>
+        <div class="section-tab" id="htab-scans"  onclick="setHistTab('scans',this)">📋 Escaneos</div>
+      </div>
+
+      <!-- Panel anual -->
+      <div id="hist-panel-anual">
       <div class="year-tabs" id="year-tabs"></div>
       <div style="display:flex;gap:8px;margin-bottom:12px">
         <button class="big-btn primary" style="flex:1" id="btn-new-year">➕ Nuevo año</button>
@@ -724,6 +752,16 @@ html,body{height:100%;overflow:hidden;background:#0a0c12;color:#e8eaf2;
         <div id="hist-ranking"></div>
       </div>
       <div id="hist-years-list"></div>
+      </div>
+
+      <!-- Panel escaneos -->
+      <div id="hist-panel-scans" style="display:none">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+          <span style="font-size:.72rem;color:var(--muted2)" id="scan-log-count"></span>
+          <button class="big-btn danger" style="padding:6px 12px;font-size:.72rem" onclick="clearScanLog()">🗑 Borrar todo</button>
+        </div>
+        <div id="scan-log-list"></div>
+      </div>
     </div>
 
 
@@ -2342,6 +2380,32 @@ function importScannedShifts() {
     else skipped++;
   });
 
+  // Guardar en log de escaneos
+  const logEntry = {
+    id: Date.now(),
+    fecha: new Date().toISOString(),
+    semana,
+    año: activeYear,
+    importados: imported,
+    omitidos: skipped,
+    thumb: capturedImg ? capturedImg : null,
+    turnos: scannedShifts.map((shift, i) => {
+      const chk = document.getElementById(`rc-${i}`);
+      const raEl = document.getElementById(`ra-${i}`);
+      const rnEl = document.getElementById(`rn-${i}`);
+      return {
+        ape:    normalizeStr(raEl?.value?.trim() || shift.apellidos || ''),
+        nom:    normalizeStr(rnEl?.value?.trim() || shift.nombre   || ''),
+        turno:  shift.turno || 'MAÑANA',
+        sel:    chk ? chk.classList.contains('on') : false
+      };
+    }).filter(t => t.ape)
+  };
+  const scanLog = JSON.parse(localStorage.getItem('ugt_scan_log') || '[]');
+  scanLog.unshift(logEntry);
+  if (scanLog.length > 50) scanLog.length = 50; // máximo 50 entradas
+  localStorage.setItem('ugt_scan_log', JSON.stringify(scanLog));
+
   // Guardar
   saveRecords();
 
@@ -2369,7 +2433,106 @@ function importScannedShifts() {
 }
 
 // ═══════════════════════════════════════════════════
-// AÑADIR TURNO
+// HISTORIAL DE ESCANEOS
+// ═══════════════════════════════════════════════════
+function setHistTab(tab, el) {
+  document.querySelectorAll('#page-hist .section-tab').forEach(t => t.classList.remove('active'));
+  el.classList.add('active');
+  document.getElementById('hist-panel-anual').style.display  = tab === 'anual' ? '' : 'none';
+  document.getElementById('hist-panel-scans').style.display  = tab === 'scans' ? '' : 'none';
+  if (tab === 'scans') renderScanLog();
+}
+
+function renderScanLog() {
+  const scanLog = JSON.parse(localStorage.getItem('ugt_scan_log') || '[]');
+  const countEl = document.getElementById('scan-log-count');
+  const listEl  = document.getElementById('scan-log-list');
+  if (!listEl) return;
+
+  if (countEl) countEl.textContent = scanLog.length === 0 ? 'Sin escaneos registrados' :
+    `${scanLog.length} escaneo${scanLog.length !== 1 ? 's' : ''} guardados`;
+
+  if (scanLog.length === 0) {
+    listEl.innerHTML = `<div style="text-align:center;padding:40px 0;color:var(--muted2);font-size:.8rem">
+      📭 Todavía no hay escaneos.<br>Importa un cuadrante desde la cámara para verlo aquí.
+    </div>`;
+    return;
+  }
+
+  listEl.innerHTML = scanLog.map((entry, idx) => {
+    const d    = new Date(entry.fecha);
+    const fecha = d.toLocaleDateString('es-ES', {day:'2-digit',month:'short',year:'numeric'});
+    const hora  = d.toLocaleTimeString('es-ES', {hour:'2-digit',minute:'2-digit'});
+    const M = entry.turnos.filter(t=>t.turno==='MAÑANA'&&t.sel).length;
+    const T = entry.turnos.filter(t=>t.turno==='TARDE' &&t.sel).length;
+    const N = entry.turnos.filter(t=>t.turno==='NOCHE' &&t.sel).length;
+    const thumbHtml = entry.thumb
+      ? `<img class="scan-log-thumb" src="${entry.thumb}" alt="miniatura">`
+      : `<div class="scan-log-thumb-empty">📷</div>`;
+
+    const rows = entry.turnos.map(t => {
+      const color = t.turno==='MAÑANA'?'var(--M)':t.turno==='TARDE'?'var(--T)':'var(--N)';
+      const icon  = t.turno==='MAÑANA'?'🌅':t.turno==='TARDE'?'🌆':'🌙';
+      const opacity = t.sel ? '' : 'opacity:.4';
+      return `<div class="scan-log-row" style="${opacity}">
+        <span style="flex:1;color:var(--text)">${t.ape}, ${t.nom}</span>
+        <span style="color:${color};font-weight:700;font-size:.72rem">${icon} ${t.turno}</span>
+        ${t.sel ? '' : '<span style="font-size:.6rem;color:var(--muted2);margin-left:6px">omitido</span>'}
+      </div>`;
+    }).join('');
+
+    return `<div class="scan-log-card">
+      <div class="scan-log-header" onclick="toggleScanLogDetail(${idx})">
+        ${thumbHtml}
+        <div class="scan-log-meta">
+          <div class="scan-log-sem">Semana ${entry.semana} · ${entry.año}</div>
+          <div class="scan-log-date">${fecha} · ${hora}</div>
+          <div class="scan-log-badges">
+            <span class="scan-log-badge" style="background:rgba(251,191,36,.15);color:var(--M)">🌅 ${M}</span>
+            <span class="scan-log-badge" style="background:rgba(56,189,248,.15);color:var(--T)">🌆 ${T}</span>
+            <span class="scan-log-badge" style="background:rgba(192,132,252,.15);color:var(--N)">🌙 ${N}</span>
+            <span class="scan-log-badge" style="background:rgba(34,211,238,.1);color:var(--accent)">${entry.importados} importados</span>
+            ${entry.omitidos > 0 ? `<span class="scan-log-badge" style="background:rgba(255,255,255,.05);color:var(--muted2)">${entry.omitidos} omitidos</span>` : ''}
+          </div>
+        </div>
+        <div style="color:var(--muted2);font-size:.8rem;flex-shrink:0" id="scan-log-arrow-${idx}">▼</div>
+      </div>
+      <div class="scan-log-detail" id="scan-log-detail-${idx}">
+        <div style="font-size:.7rem;font-weight:700;color:var(--muted2);margin-bottom:6px">
+          ${entry.turnos.length} trabajadores detectados
+        </div>
+        ${rows}
+        <button class="big-btn danger" style="width:100%;margin-top:10px;font-size:.72rem"
+          onclick="deleteScanLogEntry(${entry.id})">🗑 Borrar este escaneo</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function toggleScanLogDetail(idx) {
+  const detail = document.getElementById(`scan-log-detail-${idx}`);
+  const arrow  = document.getElementById(`scan-log-arrow-${idx}`);
+  if (!detail) return;
+  const open = detail.style.display === 'block';
+  detail.style.display = open ? 'none' : 'block';
+  if (arrow) arrow.textContent = open ? '▼' : '▲';
+}
+
+function deleteScanLogEntry(id) {
+  if (!confirm('¿Borrar este escaneo del historial?')) return;
+  let scanLog = JSON.parse(localStorage.getItem('ugt_scan_log') || '[]');
+  scanLog = scanLog.filter(e => e.id !== id);
+  localStorage.setItem('ugt_scan_log', JSON.stringify(scanLog));
+  renderScanLog();
+  toast('🗑', 'Escaneo eliminado');
+}
+
+function clearScanLog() {
+  if (!confirm('¿Borrar todo el historial de escaneos? Esta acción no se puede deshacer.')) return;
+  localStorage.removeItem('ugt_scan_log');
+  renderScanLog();
+  toast('🗑', 'Historial de escaneos borrado');
+}
 // ═══════════════════════════════════════════════════
 function openAddSheet() {
   const acum=buildAcum();
