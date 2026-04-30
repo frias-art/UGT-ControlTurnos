@@ -571,6 +571,12 @@ html,body{height:100%;overflow:hidden;background:#0a0c12;color:#e8eaf2;
       </div>
       <canvas id="photo-canvas" style="display:none"></canvas>
 
+      <!-- Barra de edición de foto -->
+      <div id="img-edit-bar" style="display:none;gap:8px;margin-bottom:10px">
+        <button class="big-btn outline" style="flex:1;font-size:.8rem" onclick="openImgEditor()">✂️ Recortar / Girar</button>
+        <button class="big-btn danger"  style="flex:1;font-size:.8rem" onclick="discardPhoto()">🗑 Descartar</button>
+      </div>
+
       <!-- Botones cámara -->
       <div class="cam-btn-row" style="margin-bottom:10px">
         <button class="big-btn outline" onclick="startCam()">📷 Cámara</button>
@@ -1666,6 +1672,170 @@ function showPreview(url) {
   const pi = document.getElementById('preview-img');
   pi.src=url; pi.style.display='block';
   document.getElementById('cam-placeholder').style.display='none';
+  // Mostrar barra de edición
+  const bar = document.getElementById('img-edit-bar');
+  if (bar) { bar.style.display='flex'; }
+}
+
+function discardPhoto() {
+  capturedImg = null;
+  document.getElementById('preview-img').style.display = 'none';
+  document.getElementById('preview-img').src = '';
+  document.getElementById('cam-placeholder').style.display = 'flex';
+  document.getElementById('img-edit-bar').style.display = 'none';
+}
+
+// ─── Editor de imagen ───────────────────────────────────────────
+const editor = {
+  img: null,          // Image object con la foto actual
+  rotation: 0,        // Acumulado en grados (múltiplos de 90)
+  crop: null,         // {x,y,w,h} en coordenadas del canvas de edición
+  dragging: false,
+  dragStart: null,
+  scale: 1,           // pixels del canvas editor por pixel de pantalla
+};
+
+function openImgEditor() {
+  if (!capturedImg) return;
+  editor.rotation = 0;
+  editor.crop = null;
+  const overlay = document.getElementById('img-editor-overlay');
+  overlay.style.display = 'flex';
+
+  const img = new Image();
+  img.onload = () => {
+    editor.img = img;
+    editorDraw();
+    initCropListeners();
+  };
+  img.src = capturedImg;
+}
+
+function closeImgEditor() {
+  document.getElementById('img-editor-overlay').style.display = 'none';
+}
+
+function editorDraw() {
+  const ec   = document.getElementById('editor-canvas');
+  const wrap = document.getElementById('editor-wrap');
+  const img  = editor.img;
+  const rad  = editor.rotation * Math.PI / 180;
+  const rotated = editor.rotation % 180 !== 0;
+
+  // Dimensiones del canvas según rotación
+  const cw = rotated ? img.height : img.width;
+  const ch = rotated ? img.width  : img.height;
+
+  // Escalar para que quepa en la pantalla
+  const maxW = wrap.clientWidth || 360;
+  editor.scale = maxW / cw;
+  ec.width  = Math.round(cw * editor.scale);
+  ec.height = Math.round(ch * editor.scale);
+
+  const ctx = ec.getContext('2d');
+  ctx.clearRect(0, 0, ec.width, ec.height);
+  ctx.save();
+  ctx.translate(ec.width/2, ec.height/2);
+  ctx.rotate(rad);
+  ctx.drawImage(img, -img.width*editor.scale/2, -img.height*editor.scale/2,
+    img.width*editor.scale, img.height*editor.scale);
+  ctx.restore();
+
+  // Sincronizar overlay
+  const oc = document.getElementById('crop-overlay');
+  oc.width  = ec.width;
+  oc.height = ec.height;
+  drawCropOverlay();
+}
+
+function drawCropOverlay() {
+  const oc  = document.getElementById('crop-overlay');
+  const ctx = oc.getContext('2d');
+  ctx.clearRect(0, 0, oc.width, oc.height);
+  if (!editor.crop) return;
+  const {x,y,w,h} = editor.crop;
+  // Oscurecer fuera del recorte
+  ctx.fillStyle = 'rgba(0,0,0,.55)';
+  ctx.fillRect(0, 0, oc.width, oc.height);
+  ctx.clearRect(x, y, w, h);
+  // Borde del recorte
+  ctx.strokeStyle = 'rgba(34,211,238,.9)';
+  ctx.lineWidth = 2;
+  ctx.strokeRect(x, y, w, h);
+  // Esquinas
+  const cs = 14;
+  ctx.lineWidth = 3;
+  [[x,y],[x+w,y],[x,y+h],[x+w,y+h]].forEach(([cx,cy],i) => {
+    ctx.beginPath();
+    const dx = i%2===0?1:-1, dy = i<2?1:-1;
+    ctx.moveTo(cx, cy+dy*cs); ctx.lineTo(cx,cy); ctx.lineTo(cx+dx*cs, cy);
+    ctx.stroke();
+  });
+  // Regla de tercios
+  ctx.strokeStyle = 'rgba(34,211,238,.25)';
+  ctx.lineWidth = 1;
+  for (let i=1;i<3;i++) {
+    ctx.beginPath(); ctx.moveTo(x+w*i/3,y); ctx.lineTo(x+w*i/3,y+h); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(x,y+h*i/3); ctx.lineTo(x+w,y+h*i/3); ctx.stroke();
+  }
+}
+
+function getPointerPos(e, canvas) {
+  const r = canvas.getBoundingClientRect();
+  const scaleX = canvas.width  / r.width;
+  const scaleY = canvas.height / r.height;
+  const src = e.touches ? e.touches[0] : e;
+  return {
+    x: (src.clientX - r.left) * scaleX,
+    y: (src.clientY - r.top)  * scaleY
+  };
+}
+
+function initCropListeners() {
+  const oc = document.getElementById('crop-overlay');
+  oc.onmousedown  = oc.ontouchstart = e => { e.preventDefault();
+    editor.dragging=true; editor.dragStart=getPointerPos(e,oc); editor.crop=null; };
+  oc.onmousemove  = oc.ontouchmove  = e => { e.preventDefault();
+    if (!editor.dragging) return;
+    const p = getPointerPos(e,oc);
+    const s = editor.dragStart;
+    editor.crop = { x:Math.min(s.x,p.x), y:Math.min(s.y,p.y),
+                    w:Math.abs(p.x-s.x),  h:Math.abs(p.y-s.y) };
+    drawCropOverlay();
+  };
+  oc.onmouseup = oc.ontouchend = e => { editor.dragging=false; };
+}
+
+function editorRotate(deg) {
+  editor.rotation = (editor.rotation + deg + 360) % 360;
+  editor.crop = null;
+  editorDraw();
+}
+
+function editorResetCrop() {
+  editor.crop = null;
+  drawCropOverlay();
+}
+
+function applyImgEdit() {
+  const ec  = document.getElementById('editor-canvas');
+  const out = document.createElement('canvas');
+
+  if (editor.crop && editor.crop.w > 10 && editor.crop.h > 10) {
+    // Recortar la zona seleccionada del canvas de edición
+    const {x,y,w,h} = editor.crop;
+    out.width=Math.round(w); out.height=Math.round(h);
+    out.getContext('2d').drawImage(ec, x, y, w, h, 0, 0, w, h);
+  } else {
+    // Sin recorte — usar el canvas completo (con la rotación ya aplicada)
+    out.width=ec.width; out.height=ec.height;
+    out.getContext('2d').drawImage(ec, 0, 0);
+  }
+
+  capturedImg = out.toDataURL('image/jpeg', 0.92);
+  showPreview(capturedImg);
+  closeImgEditor();
+  toast('✅','Imagen editada');
 }
 
 function fromGallery(e) {
@@ -3325,5 +3495,34 @@ document.addEventListener('DOMContentLoaded', ()=>{
 
 
 </script>
+<!-- ═══ EDITOR DE IMAGEN ═══ -->
+<div id="img-editor-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.92);
+  z-index:300;flex-direction:column;align-items:center;justify-content:center;padding:12px">
+
+  <!-- Toolbar superior -->
+  <div style="display:flex;gap:8px;margin-bottom:10px;width:100%;max-width:480px">
+    <button class="big-btn outline" style="flex:1;font-size:.82rem" onclick="editorRotate(-90)">↺ Girar izq</button>
+    <button class="big-btn outline" style="flex:1;font-size:.82rem" onclick="editorRotate(90)">↻ Girar der</button>
+    <button class="big-btn outline" style="flex:1;font-size:.82rem" onclick="editorResetCrop()">⊡ Reset</button>
+  </div>
+
+  <!-- Canvas de edición -->
+  <div style="position:relative;max-width:480px;width:100%;touch-action:none" id="editor-wrap">
+    <canvas id="editor-canvas" style="width:100%;border-radius:10px;display:block;cursor:crosshair"></canvas>
+    <!-- Overlay de selección de recorte -->
+    <canvas id="crop-overlay" style="position:absolute;top:0;left:0;width:100%;height:100%;
+      border-radius:10px;cursor:crosshair;touch-action:none"></canvas>
+  </div>
+
+  <!-- Toolbar inferior -->
+  <div style="display:flex;gap:8px;margin-top:10px;width:100%;max-width:480px">
+    <button class="big-btn danger"  style="flex:1" onclick="closeImgEditor()">✕ Cancelar</button>
+    <button class="big-btn primary" style="flex:1" onclick="applyImgEdit()">✅ Aplicar</button>
+  </div>
+  <p style="font-size:.65rem;color:var(--muted2);margin-top:8px;text-align:center">
+    Arrastra para seleccionar la zona de recorte
+  </p>
+</div>
+
 </body>
 </html>
