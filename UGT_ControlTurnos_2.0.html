@@ -1646,7 +1646,7 @@ function fixImageOrientation(dataUrl) {
         c.width = img.width; c.height = img.height;
         c.getContext('2d').drawImage(img, 0, 0);
       }
-      resolve(c.toDataURL('image/jpeg', 0.92));
+      resolve(c.toDataURL('image/jpeg', 0.95));
     };
     img.onerror = () => resolve(dataUrl);
     img.src = dataUrl;
@@ -1684,7 +1684,7 @@ async function snap() {
   c.height = Math.round(sh);
   c.getContext('2d').drawImage(v, sx, sy, sw, sh, 0, 0, c.width, c.height);
 
-  const raw = c.toDataURL('image/jpeg', 0.92);
+  const raw = c.toDataURL('image/jpeg', 0.95);
   capturedImg = await fixImageOrientation(raw);
   showPreview(capturedImg);
   stopCam();
@@ -1856,24 +1856,49 @@ function editorResetCrop() {
 }
 
 function applyImgEdit() {
-  const ec  = document.getElementById('editor-canvas');
-  const out = document.createElement('canvas');
+  const img  = editor.img;
+  const rad  = editor.rotation * Math.PI / 180;
+  const rotated = editor.rotation % 180 !== 0;
 
+  // Dimensiones a resolución COMPLETA (sin escalar)
+  const fullW = rotated ? img.height : img.width;
+  const fullH = rotated ? img.width  : img.height;
+
+  // 1. Dibujar la imagen rotada a resolución completa en un canvas temporal
+  const fullCanvas = document.createElement('canvas');
+  fullCanvas.width  = fullW;
+  fullCanvas.height = fullH;
+  const ctx = fullCanvas.getContext('2d');
+  ctx.save();
+  ctx.translate(fullW / 2, fullH / 2);
+  ctx.rotate(rad);
+  ctx.drawImage(img, -img.width / 2, -img.height / 2, img.width, img.height);
+  ctx.restore();
+
+  // 2. Si hay recorte, convertir coordenadas de pantalla → resolución completa
   if (editor.crop && editor.crop.w > 10 && editor.crop.h > 10) {
-    // Recortar la zona seleccionada del canvas de edición
-    const {x,y,w,h} = editor.crop;
-    out.width=Math.round(w); out.height=Math.round(h);
-    out.getContext('2d').drawImage(ec, x, y, w, h, 0, 0, w, h);
+    const ec = document.getElementById('editor-canvas');
+    const scaleX = fullW / ec.width;
+    const scaleY = fullH / ec.height;
+    const {x, y, w, h} = editor.crop;
+    const sx = Math.round(x * scaleX);
+    const sy = Math.round(y * scaleY);
+    const sw = Math.round(w * scaleX);
+    const sh = Math.round(h * scaleY);
+
+    const cropCanvas = document.createElement('canvas');
+    cropCanvas.width  = sw;
+    cropCanvas.height = sh;
+    cropCanvas.getContext('2d').drawImage(fullCanvas, sx, sy, sw, sh, 0, 0, sw, sh);
+    capturedImg = cropCanvas.toDataURL('image/jpeg', 0.95);
   } else {
-    // Sin recorte — usar el canvas completo (con la rotación ya aplicada)
-    out.width=ec.width; out.height=ec.height;
-    out.getContext('2d').drawImage(ec, 0, 0);
+    // Sin recorte — guardar la imagen rotada a resolución completa
+    capturedImg = fullCanvas.toDataURL('image/jpeg', 0.95);
   }
 
-  capturedImg = out.toDataURL('image/jpeg', 0.92);
   showPreview(capturedImg);
   closeImgEditor();
-  toast('✅','Imagen editada');
+  toast('✅', 'Imagen editada');
 }
 
 function fromGallery(e) {
