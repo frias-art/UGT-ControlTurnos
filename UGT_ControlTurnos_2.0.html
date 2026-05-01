@@ -1630,22 +1630,75 @@ function adjustCamContainer(videoEl) {
   }
 }
 
-// Corrige orientación EXIF: si la foto salió en vertical, la rota a landscape
-function fixImageOrientation(dataUrl) {
+// Lee la orientación EXIF del JPEG y rota el canvas en consecuencia
+function getExifOrientation(dataUrl) {
+  return new Promise(resolve => {
+    try {
+      const bin = atob(dataUrl.split(',')[1]);
+      const bytes = new Uint8Array(bin.length);
+      for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+      // Buscar marcador APP1 (0xFFE1) con "Exif"
+      let offset = 2;
+      while (offset < bytes.length - 4) {
+        if (bytes[offset] === 0xFF && bytes[offset+1] === 0xE1) {
+          const exifOffset = offset + 4;
+          // Comprobar "Exif\0\0"
+          if (String.fromCharCode(...bytes.slice(exifOffset, exifOffset+4)) !== 'Exif') { resolve(1); return; }
+          const tiffOffset = exifOffset + 6;
+          const littleEndian = bytes[tiffOffset] === 0x49;
+          const read16 = o => littleEndian
+            ? bytes[tiffOffset+o] | (bytes[tiffOffset+o+1]<<8)
+            : (bytes[tiffOffset+o]<<8) | bytes[tiffOffset+o+1];
+          const read32 = o => littleEndian
+            ? bytes[tiffOffset+o] | (bytes[tiffOffset+o+1]<<8) | (bytes[tiffOffset+o+2]<<16) | (bytes[tiffOffset+o+3]<<24)
+            : (bytes[tiffOffset+o]<<24) | (bytes[tiffOffset+o+1]<<16) | (bytes[tiffOffset+o+2]<<8) | bytes[tiffOffset+o+3];
+          const ifdOffset = read32(4);
+          const numEntries = read16(ifdOffset);
+          for (let e = 0; e < numEntries; e++) {
+            const eOffset = ifdOffset + 2 + e * 12;
+            if (read16(eOffset) === 0x0112) { // Orientation tag
+              resolve(read16(eOffset + 8));
+              return;
+            }
+          }
+          resolve(1); return;
+        }
+        offset += 2 + ((bytes[offset+2]<<8)|bytes[offset+3]);
+      }
+      resolve(1);
+    } catch(e) { resolve(1); }
+  });
+}
+
+async function fixImageOrientation(dataUrl) {
+  const orientation = await getExifOrientation(dataUrl);
+  // Si orientación 1 = normal, no tocar
+  if (orientation === 1) return dataUrl;
+
   return new Promise(resolve => {
     const img = new Image();
     img.onload = () => {
       const c = document.createElement('canvas');
-      if (img.height > img.width) {
-        c.width = img.height; c.height = img.width;
-        const ctx = c.getContext('2d');
-        ctx.translate(c.width/2, c.height/2);
-        ctx.rotate(Math.PI/2);
-        ctx.drawImage(img, -img.width/2, -img.height/2);
-      } else {
-        c.width = img.width; c.height = img.height;
-        c.getContext('2d').drawImage(img, 0, 0);
+      const ctx = c.getContext('2d');
+      // Orientaciones EXIF y su transformación:
+      // 1: normal  2: flip-H  3: 180°  4: flip-V
+      // 5: 90°+flipH  6: 90°CW  7: 90°CW+flipH  8: 90°CCW
+      const swap = [5,6,7,8].includes(orientation);
+      c.width  = swap ? img.height : img.width;
+      c.height = swap ? img.width  : img.height;
+      ctx.save();
+      ctx.translate(c.width/2, c.height/2);
+      switch(orientation) {
+        case 2: ctx.scale(-1, 1); break;
+        case 3: ctx.rotate(Math.PI); break;
+        case 4: ctx.scale(1, -1); break;
+        case 5: ctx.rotate(-Math.PI/2); ctx.scale(-1, 1); break;
+        case 6: ctx.rotate(Math.PI/2); break;
+        case 7: ctx.rotate(Math.PI/2); ctx.scale(-1, 1); break;
+        case 8: ctx.rotate(-Math.PI/2); break;
       }
+      ctx.drawImage(img, -img.width/2, -img.height/2);
+      ctx.restore();
       resolve(c.toDataURL('image/jpeg', 0.95));
     };
     img.onerror = () => resolve(dataUrl);
